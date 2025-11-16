@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Tray details · Logistics Tracker{% endblock %}
+
+{% block content %}
+<section class="panel">
+    <h1>Tray activity details</h1>
+    {% if trays %}
+        <form method="get" class="tray-filter-form">
+            <label>
+                Tray
+                <select name="tray">
+                    {% for tray in trays %}
+                        {% with tray.id|stringformat:"s" as tray_value %}
+                            <option value="{{ tray_value }}"
+                                    {% if selected_tray_value == tray_value %}selected{% endif %}>
+                                {{ tray.tray_id }} ({{ tray.location_label|default:"Unknown" }})
+                            </option>
+                        {% endwith %}
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                Range
+                <select name="range">
+                    {% for key,label in range_choices.items %}
+                        <option value="{{ key }}" {% if key == range_key %}selected{% endif %}>{{ label.0 }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button type="submit">Update</button>
+        </form>
+
+        {% if selected_tray %}
+            <div class="snapshot-grid">
+                <article class="panel snapshot-card">
+                    <h2>Latest snapshot</h2>
+                    {% if snapshot %}
+                        <dl>
+                            <dt>Tray ID</dt>
+                            <dd>{{ snapshot.tray_id }}</dd>
+                            <dt>Location</dt>
+                            <dd>{{ snapshot.location }}</dd>
+                            <dt>Current status</dt>
+                            <dd>{% if snapshot.is_active %}Active{% else %}Inactive{% endif %}</dd>
+                            <dt>Last update</dt>
+                            <dd>{{ snapshot.last_update }}</dd>
+                        </dl>
+                    {% else %}
+                        <p>No snapshot available.</p>
+                    {% endif %}
+                </article>
+                <div class="stats-grid">
+                    <div>
+                        <h3>Total activations</h3>
+                        <p>{{ stats.total_activations }}</p>
+                    </div>
+                    <div>
+                        <h3>Avg. collection time</h3>
+                        <p>{{ stats.avg_duration|floatformat:2 }} hrs</p>
+                    </div>
+                    <div>
+                        <h3>Longest collection</h3>
+                        <p>{{ stats.longest_duration|floatformat:2 }} hrs</p>
+                    </div>
+                    <div>
+                        <h3>Utilization</h3>
+                        <p>{{ stats.utilization|floatformat:1 }}%</p>
+                    </div>
+                    {% if stats.open_duration %}
+                        <div>
+                            <h3>Ongoing collection</h3>
+                            <p>{{ stats.open_duration|floatformat:2 }} hrs</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <article class="panel">
+                <h2>Collection duration trend (minutes)</h2>
+                {% if activation_periods %}
+                    <canvas id="trayHistoryChart"
+                            data-chart='{{ chart_data_json|escapejs }}'></canvas>
+                {% else %}
+                    <p>No completed collection sessions in this window.</p>
+                {% endif %}
+            </article>
+
+            <article class="panel">
+                <h2>Collection sessions ({{ range_label }})</h2>
+                {% if activation_periods %}
+                    <table class="event-table">
+                        <thead>
+                        <tr>
+                            <th>Start</th>
+                            <th>End</th>
+                            <th>Duration (hrs)</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for period in activation_periods %}
+                            <tr>
+                                <td>{{ period.start }}</td>
+                                <td>
+                                    {{ period.end }}
+                                    {% if period.is_open %}<em>(ongoing)</em>{% endif %}
+                                </td>
+                                <td>{{ period.duration_hours|floatformat:2 }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p>No completed sessions in this time window.</p>
+                {% endif %}
+            </article>
+
+            <article class="panel">
+                <h2>Event log ({{ range_label }})</h2>
+                {% if events %}
+                    <table class="event-table">
+                        <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Status</th>
+                            <th>Topic</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for event in events %}
+                            <tr>
+                                <td>{{ event.timestamp }}</td>
+                                <td>{{ event.get_status_display }}</td>
+                                <td>{{ event.topic|default:"-" }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p>No events recorded in this window.</p>
+                {% endif %}
+            </article>
+        {% else %}
+            <p>Please select a tray to view details.</p>
+        {% endif %}
+    {% else %}
+        <p>No trays have reported yet.</p>
+    {% endif %}
+</section>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="{% static 'vendor/chart.js/chart.umd.js' %}"></script>
+    <script src="{% static 'js/tray_history.js' %}"></script>
+{% endblock %}

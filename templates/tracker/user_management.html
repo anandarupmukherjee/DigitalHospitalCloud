@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load tracker_extras %}
+
+{% block title %}User management · Logistics Tracker{% endblock %}
+
+{% block content %}
+<section class="panel">
+    <h1>User management</h1>
+    <form method="post" class="user-form">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        <div class="form-grid">
+            <label>Username {{ form.username }} {{ form.username.errors }}</label>
+            <label>Email {{ form.email }} {{ form.email.errors }}</label>
+            <label>Password {{ form.password }} {{ form.password.errors }}</label>
+            <label>Role {{ form.role }} {{ form.role.errors }}</label>
+        </div>
+        <button type="submit">Create user</button>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Existing users</h2>
+    <table class="event-table">
+        <thead>
+        <tr>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Last login</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for user in users %}
+            <tr>
+                <td>{{ user.username }}</td>
+                <td>{{ user.email|default:"-" }}</td>
+                <td>{{ user|role_label }}</td>
+                <td>{{ user.last_login|default:"-" }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="4">No users yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}

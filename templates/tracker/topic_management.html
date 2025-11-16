@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Topic management · Logistics Tracker{% endblock %}
+
+{% block content %}
+<section class="panel topic-management">
+    <h1>Topic management</h1>
+    {% if topics %}
+        <form method="get" class="topic-selector">
+            <label>
+                Topic
+                <select name="topic" onchange="this.form.submit()">
+                    {% for topic in topics %}
+                        <option value="{{ topic }}" {% if topic == selected_topic %}selected{% endif %}>
+                            {{ topic|default:"Blank topic" }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </label>
+            <noscript>
+                <button type="submit">Load</button>
+            </noscript>
+        </form>
+        {% if selected_topic %}
+            <div class="topic-layout">
+                <div class="topic-main">
+                    <h2>Last message</h2>
+                    {% if last_event %}
+                        <dl class="topic-meta">
+                            <dt>Topic</dt>
+                            <dd>{{ selected_topic_label }}</dd>
+                            <dt>Tray</dt>
+                            <dd>{{ last_event.tray.tray_id }}</dd>
+                            <dt>Status</dt>
+                            <dd>{{ last_event.get_status_display }}</dd>
+                            <dt>Received at</dt>
+                            <dd>{{ last_event.timestamp }}</dd>
+                        </dl>
+                        <div class="payload-wrapper">
+                            <header>Payload</header>
+                            <pre>{{ last_payload_pretty|default:"{}" }}</pre>
+                        </div>
+                    {% else %}
+                        <p>No messages recorded yet for {{ selected_topic_label }}.</p>
+                    {% endif %}
+                </div>
+                <div class="topic-side">
+                    <h3>Trackers on this topic</h3>
+                    {% if topic_trays %}
+                        <table class="event-table">
+                            <thead>
+                            <tr>
+                                <th>Tray ID</th>
+                                <th>Location</th>
+                                <th>Status</th>
+                                <th>Updated</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for tray in topic_trays %}
+                                <tr>
+                                    <td>{{ tray.tray_id }}</td>
+                                    <td>{{ tray.location_label|default:"-" }}</td>
+                                    <td>{{ tray.is_active|yesno:"Active,Inactive" }}</td>
+                                    <td>{{ tray.updated_at }}</td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <p>No trackers currently assigned to this topic.</p>
+                    {% endif %}
+                    <form method="post" class="topic-delete-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="topic" value="{{ selected_topic }}">
+                        <button type="submit" class="danger">Delete topic data</button>
+                        <p class="form-help">Deletes all status snapshots and history for this topic. The next MQTT message will recreate it.</p>
+                    </form>
+                </div>
+            </div>
+        {% endif %}
+    {% else %}
+        <p>No topics have been recorded yet. Once trackers publish MQTT messages, they will appear here.</p>
+    {% endif %}
+</section>
+{% endblock %}
