@@ -1,0 +1,73 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage Suppliers</title>
+    <link rel="stylesheet" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+    {% include "includes/navbar.html" %}
+
+    <div class="dashboard-container">
+        <div class="card form-card">
+            <h2>{% if editing %}Edit Supplier{% else %}Add Supplier{% endif %}</h2>
+            <form method="post">
+                {% csrf_token %}
+                {% if editing %}
+                    <input type="hidden" name="supplier_id" value="{{ editing.id }}">
+                {% endif %}
+                {{ form.as_p }}
+                <button type="submit" class="btn btn-primary">
+                    {% if editing %}Update Supplier{% else %}Add Supplier{% endif %}
+                </button>
+                {% if editing %}
+                    <a href="{% url 'inventory:manage_suppliers' %}" class="btn btn-secondary">Cancel</a>
+                {% endif %}
+            </form>
+        </div>
+
+        <div class="card table-card">
+            <h2>Suppliers</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Mapped Products</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for supplier in suppliers %}
+                        <tr>
+                            <td>{{ supplier.name }}</td>
+                            <td>{{ supplier.contact_email|default:"—" }}</td>
+                            <td>{{ supplier.contact_phone|default:"—" }}</td>
+                            <td>
+                                {% with mapped_products=supplier.mapped_products %}
+                                  <strong>{{ mapped_products|length }}</strong> products
+                                {% endwith %}
+                            </td>
+                            <td>
+                                {% with mapped_products=supplier.mapped_products %}
+                                    {% if mapped_products %}
+                                        <a class="btn btn-small" href="{% url 'inventory:supplier_products' supplier.id %}">View Products</a>
+                                    {% endif %}
+                                {% endwith %}
+                                <a class="btn btn-small" href="{% url 'inventory:manage_suppliers' %}?supplier_id={{ supplier.id }}">Edit</a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="4">No suppliers saved yet.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

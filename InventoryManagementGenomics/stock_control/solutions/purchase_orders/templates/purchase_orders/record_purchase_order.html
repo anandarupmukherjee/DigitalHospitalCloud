@@ -1,0 +1,82 @@
+{% load static %}
+{% load feature_flags %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Record Purchase Order</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'inventory/styles.css' %}">
+    <script src="{% static 'inventory/table_search.js' %}" defer></script>
+    <script src="{% static 'inventory/prefill_purchase_form.js' %}" defer></script>
+    
+
+</head>
+<body>
+
+    <!-- Navigation Bar -->
+    {% include "includes/navbar.html" %}
+
+
+<!-- Main -->
+<div class="dashboard-container" style="display: flex; gap: 2rem; flex-wrap: wrap;">
+
+    <!-- Low Stock Items Table -->
+    {% if low_stock %}
+    <div class="card table-card" style="flex: 1 1 45%;">
+        <h2>Low Stock Products</h2>
+        <input type="text" id="searchLowStock" placeholder="Search low stock products..." class="form-control mb-2">
+        <div class="table-wrapper">
+
+            <table id="lowStockTable">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Name</th>
+                        <th>Stock</th>
+                        <th>Threshold</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in low_stock %}
+                    <tr>
+                        <td>{{ p.product_code }}</td>
+                        <td>{{ p.name }}</td>
+                        <td>{{ p.get_full_items_in_stock }}</td>
+                        <td>{{ p.threshold }}</td>
+                        <td>
+                            <a href="?product_code={{ p.product_code }}&product_name={{ p.name }}" class="btn btn-small">
+                                Order Now
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Record PO Form -->
+    <div class="card form-card" style="flex: 1 1 45%;">
+        <h2>Record a New Purchase Order</h2>
+        <form method="post">
+            {% csrf_token %}
+
+            {{ form.as_p }}
+
+            <button type="submit" class="btn btn-primary">Place Order</button>
+        </form>
+        <br>
+        <a href="{% url 'purchase_orders:track_purchase_orders' %}" class="btn btn-secondary">View Purchase Orders</a>
+    </div>
+
+    
+    
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv/
+venv/
+
+# Django / sqlite
+db.sqlite3
+*.sqlite3
+
+# OS / editor junk
+.DS_Store
+~$*
+*.log
+
+# Node / frontend
+node_modules/
+dist/
+build/

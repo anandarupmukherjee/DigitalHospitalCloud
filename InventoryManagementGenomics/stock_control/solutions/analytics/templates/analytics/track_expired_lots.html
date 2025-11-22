@@ -1,0 +1,55 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Track Expired Lots</title>
+    <link rel="stylesheet" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+    {% include "includes/navbar.html" %}
+
+    <div class="dashboard-container">
+        <div class="card table-card">
+            <div class="card-header flex-between">
+                <h2>Expired & Upcoming Lots</h2>
+                <form method="get" class="inline-form">
+                    {% for option in range_options %}
+                        <label class="radio-inline">
+                            <input type="radio" name="range" value="{{ option.value }}" {% if option.value == selected_range %}checked{% endif %} onchange="this.form.submit()">
+                            {{ option.label }}
+                        </label>
+                    {% endfor %}
+                </form>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Product Code</th>
+                        <th>Lot Number</th>
+                        <th>Expiry Date</th>
+                        <th>Current Stock</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in expired_items %}
+                        <tr>
+                            <td>{{ item.product.name }}</td>
+                            <td>{{ item.product.product_code }}</td>
+                            <td>{{ item.lot_number }}</td>
+                            <td>{{ item.expiry_date|date:"Y-m-d" }}</td>
+                            <td>{{ item.current_stock }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="5">Great news! No lots have expired yet.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

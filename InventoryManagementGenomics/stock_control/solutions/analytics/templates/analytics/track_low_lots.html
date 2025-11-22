@@ -1,0 +1,45 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Track Low Lots</title>
+    <link rel="stylesheet" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+    {% include "includes/navbar.html" %}
+
+    <div class="dashboard-container">
+        <div class="card table-card">
+            <h2>Lots Below Threshold</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Product Code</th>
+                        <th>Total Stock</th>
+                        <th>Threshold</th>
+                        <th>Next Expiry</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in low_lots %}
+                        <tr>
+                            <td>{{ entry.product.name }}</td>
+                            <td>{{ entry.product.product_code }}</td>
+                            <td>{{ entry.total_stock }}</td>
+                            <td>{{ entry.threshold }}</td>
+                            <td>{{ entry.next_expiry|date:"Y-m-d"|default:"—" }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="5">All products are currently above their thresholds.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

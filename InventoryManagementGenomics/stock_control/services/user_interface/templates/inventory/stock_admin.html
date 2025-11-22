@@ -1,0 +1,190 @@
+{% load static %}
+{% load custom_tags %}
+{% load feature_flags %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Stock Admin</title>
+  <link rel="stylesheet" type="text/css" href="{% static 'inventory/styles.css' %}">
+
+  <script src="{% static 'inventory/barcode_fetch.js' %}"></script>
+  <script src="{% static 'inventory/barcode_parser.js' %}"></script>
+  <script src="{% static 'inventory/table_search.js' %}"></script>
+
+  <style>
+    .expired-row {
+      background-color: #ffd6d6;
+      animation: blinkFade 1s ease-in-out infinite;
+    }
+
+    @keyframes blinkFade {
+      0%, 100% { background-color: #ffd6d6; }
+      50% { background-color: #ffffff; }
+    }
+
+    .delete-button {
+      background-color: #e74c3c;
+      color: white;
+      border: none;
+      padding: 4px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .delete-button:hover {
+      background-color: #c0392b;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  {% include "includes/navbar.html" %}
+
+  <div class="dashboard-container stock-admin-container">
+
+    <!-- ✅ Flex wrapper for horizontal layout -->
+    <div class="table-card-wrapper">
+
+      <!-- Products Table -->
+      <!-- <div class="card table-card wide-card">
+        <h2>Products Overview</h2>
+        <input type="text" id="searchAdmin" class="search-bar" placeholder="Search by name or code">
+        <div class="table-wrapper">
+          <table id="adminTable">
+            <thead>
+              <tr>
+                <th>Product Code</th>
+                <th>Name</th>
+                <th>Supplier</th>
+                <th>Threshold</th>
+                <th>Lead Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in products %}
+                <tr>
+                  <td>{{ p.product_code }}</td>
+                  <td>{{ p.name }}</td>
+                  <td>{{ p.supplier_display }}</td>
+                  <td>{{ p.threshold }}</td>
+                  <td>{{ p.lead_time }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="5">No products available.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div> -->
+
+      <!-- Product + Lot Form -->
+      <div class="card form-card narrow-card">
+        <h2>{% if editing_product %}Edit Product: {{ editing_product.name }}{% else %}Add New Product{% endif %}</h2>
+
+        <form method="get" action="{% url 'data_collection_1:stock_admin' %}">
+          <label for="id_barcode_scan">Scan or Enter Barcode:</label>
+          <input type="text" name="raw" id="id_barcode_scan" placeholder="Scan barcode here" autofocus>
+          <button type="submit">Fetch Product</button>
+        </form>
+
+        <form method="POST">
+          {% csrf_token %}
+          <fieldset>
+            <legend>Product Details</legend>
+            {{ product_form.as_p }}
+          </fieldset>
+          <fieldset>
+            <legend>Lot Information</legend>
+            {{ product_item_form.as_p }}
+          </fieldset>
+          <button type="submit">
+            {% if editing_product %}Save Changes{% else %}Add Product and Lot{% endif %}
+          </button>
+        </form>
+
+        {% if editing_product %}
+          <p><a href="{% url 'data_collection_1:stock_admin' %}">Create a new product instead</a></p>
+        {% endif %}
+      </div>
+
+      <!-- Product Lots Table -->
+      <div class="card table-card wide-card">
+        <h2>Product Lots & Expired Lots</h2>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Action</th>
+                <th>Product</th>
+                <th>Lot Number</th>
+                <th>Expiry</th>
+                <th>Stock</th>
+                {% if location_tracking_enabled %}
+                  <th>Locations</th>
+                {% endif %}
+                <th>Units/Item</th>
+                <th>Partial Units</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in products %}
+                {% for item in p.items.all %}
+                  {% with today=now.date %}
+                    {% if item.expiry_date and item.expiry_date <= today %}
+                      <tr class="expired-row">
+                    {% else %}
+                      <tr>
+                    {% endif %}
+                  {% endwith %}
+                  {% if item.expiry_date and item.expiry_date <= now.date %}
+                    <td>
+                      <form method="POST" action="{% url 'data_collection_1:delete_lot' item.id %}" onsubmit="return confirm('Are you sure you want to discard this expired lot?');">
+                        {% csrf_token %}
+                        <button type="submit" class="delete-button">🗑️ Delete Lot</button>
+                      </form>
+                    </td>
+                  {% else %}
+                    <td></td>
+                  {% endif %}
+                  <td>{{ p.name }}</td>
+                  <td>{{ item.lot_number }}</td>
+                  <td>{{ item.expiry_date|date:"F d, Y" }}</td>
+                  <td>{{ item.current_stock }}</td>
+                  {% if location_tracking_enabled %}
+                    <td>
+                      {% with stocks=product.location_stocks %}
+                        {% if stocks %}
+                          <ul class="inline-list">
+                            {% for stock in stocks %}
+                              {% if stock.product_item_id == item.id %}
+                                <li>{{ stock.location.name }} ({{ stock.quantity }})</li>
+                              {% endif %}
+                            {% endfor %}
+                          </ul>
+                        {% else %}
+                          —
+                        {% endif %}
+                      {% endwith %}
+                    </td>
+                  {% endif %}
+                  <td>{{ item.units_per_quantity }}</td>
+                  <td>{{ item.accumulated_partial }}</td>
+                  <td>{{ item.product_feature }}</td>
+                </tr>
+              {% endfor %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div> <!-- /.table-card-wrapper -->
+
+  </div> <!-- /.dashboard-container -->
+
+</body>
+</html>

@@ -1,0 +1,118 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Product QC Lots</title>
+  <link rel="stylesheet" type="text/css" href="{% static 'inventory/styles.css' %}">
+  <style>
+    .qc-pass { color: #0a7a2d; font-weight: 600; }
+    .qc-fail { color: #b00020; font-weight: 600; }
+    .qc-pending { color: #b38600; font-weight: 600; }
+    .form-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+    .form-row label { font-weight: 600; }
+    .inline-form input[type="text"] { min-width: 260px; }
+  </style>
+</head>
+<body>
+  {% include "includes/navbar.html" %}
+
+  <div class="dashboard-container">
+    <div class="card">
+      <div class="card-header">
+        <h2>Product Lots QC Status</h2>
+        <a href="{% url 'quality_control:list_checks' %}" class="btn btn-secondary">Back to QC Checks</a>
+      </div>
+
+      {% if qc_messages %}
+        <div class="messages">
+          <ul>
+            {% for message in qc_messages %}
+              <li class="{{ message.tags }}">{{ message }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      <div class="form-row">
+        <form method="get" class="inline-form">
+          <label for="product_id">Select Product</label><br>
+          <select id="product_id" name="product_id">
+            <option value="">-- Choose a product --</option>
+            {% for product in products %}
+              <option value="{{ product.id }}" {% if selected_product and product.id == selected_product.id %}selected{% endif %}>
+                {{ product.product_code }} — {{ product.name }}
+              </option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn btn-primary">View Lots</button>
+        </form>
+
+        <form method="get" class="inline-form">
+          <label for="barcode">Scan / Enter Product Barcode</label><br>
+          <input
+            type="text"
+            id="barcode"
+            name="barcode"
+            value="{{ barcode_value }}"
+            placeholder="Scan or type barcode"
+            autocomplete="off"
+          >
+          <button type="submit" class="btn btn-primary">Lookup</button>
+        </form>
+      </div>
+
+      {% if selected_product %}
+        <h3 style="margin-top: 20px;">{{ selected_product.name }} ({{ selected_product.product_code }})</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Lot</th>
+                <th>Expiry</th>
+                <th>Total Stock</th>
+                <th>Current Stock</th>
+                <th>Latest QC</th>
+                <th>Status</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in lot_status_rows %}
+                <tr>
+                  <td>{{ row.item.lot_number }}</td>
+                  <td>{{ row.item.expiry_date|date:"Y-m-d" }}</td>
+                  <td>{{ row.total_effective|default:row.item.current_stock }}</td>
+                  <td>{{ row.item.current_stock }}</td>
+                  <td>
+                    {% if row.latest_check %}
+                      {{ row.latest_check.test_reference|default:"—" }}
+                    {% else %}
+                      —
+                    {% endif %}
+                  </td>
+                  <td class="{{ row.status_class }}">{{ row.status_label }}</td>
+                  <td>
+                    {% if row.latest_check %}
+                      {{ row.latest_check.notes|default:"—" }}
+                    {% else %}
+                      Waiting for first QC
+                    {% endif %}
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="6">No lots found for this product.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p style="margin-top: 20px;">Select a product or scan a barcode to see lot QC status.</p>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>

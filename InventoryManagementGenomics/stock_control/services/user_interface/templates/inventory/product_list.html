@@ -1,0 +1,111 @@
+{% load static %}
+{% load feature_flags %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product List</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'inventory/styles.css' %}">
+    <script src="{% static 'inventory/table_search.js' %}" defer></script>
+</head>
+<body>
+
+
+    <!-- Navigation Bar -->
+    {% include "includes/navbar.html" %}
+
+
+    <!-- Page Container -->
+    <div class="dashboard-container product-list-container">
+
+        <!-- Product List Card -->
+        <div class="card table-card">
+            <div class="card-header flex-between">
+                <h1>All Products</h1>
+                <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                    <form method="get" class="inline-form">
+                        {% for value, label in filter_options %}
+                            <label class="radio-inline">
+                                <input type="radio" name="filter" value="{{ value }}" {% if value == filter_key %}checked{% endif %} onchange="this.form.submit()">
+                                {{ label }}
+                            </label>
+                        {% endfor %}
+                    </form>
+                    <form method="get" class="inline-form">
+                        <input
+                            type="text"
+                            name="barcode"
+                            value="{{ barcode_value }}"
+                            placeholder="Scan or enter product barcode"
+                            autocomplete="off"
+                        >
+                        <input type="hidden" name="filter" value="{{ filter_key }}">
+                        <button type="submit" class="btn btn-primary">Lookup</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Search Bar -->
+            <!-- Search Bar for Product List -->
+            <input type="text" id="searchProduct" class="search-bar" placeholder="Search by name, code, or supplier">
+
+
+            <div class="table-wrapper">
+                <table id="productTable">
+                    <thead>
+                        <tr>
+                            <th>Product Name</th>
+                            <th>Product Code</th>
+                            <th>Total Stock</th>
+                            <th>Full Items in Stock</th>
+                            <th>Remaining Parts</th>
+                            <th>Stock Threshold</th>
+                            <th>Order Lead Times</th>
+                            <th>Supplier</th>
+                            {% if location_tracking_enabled %}
+                            <th>Locations</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in products %}
+                            <tr>
+                                <td>{{ product.name }}</td>
+                                <td>{{ product.product_code }}</td>
+                                <td>{{ product.total_stock }}</td>
+                                <td>{{ product.full_items }}</td>
+                                <td>{{ product.remaining_parts }}</td>
+                                <td>{{ product.threshold }}</td>
+                                <td>{{ product.lead_time }}</td>
+                                <td>{{ product.supplier_display }}</td>
+                                {% if location_tracking_enabled %}
+                                <td>
+                                    {% if product.location_stocks %}
+                                        <ul class="inline-list">
+                                            {% for stock in product.location_stocks %}
+                                                <li>{{ stock.location.name }} ({{ stock.quantity }})</li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                                {% endif %}
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="8">No products found.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                    
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

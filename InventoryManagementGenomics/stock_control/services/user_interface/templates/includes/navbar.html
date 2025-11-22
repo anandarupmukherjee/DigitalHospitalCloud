@@ -1,0 +1,128 @@
+{% load group_tags %}
+
+
+<nav>
+  <ul>
+    {% if user|has_role_or_admin:"Inventory Manager" or user|has_role:"Staff" %}
+      <li><a href="{% url 'inventory:dashboard' %}">Dashboard</a></li>
+      <li><a href="{% url 'inventory:product_list' %}">Product List</a></li>
+    {% elif user|has_role:"Supplier" %}
+      <li><a href="{% url 'analytics:track_low_lots' %}">Low Stock</a></li>
+      <li><a href="{% url 'analytics:track_expired_lots' %}">Expired Lots</a></li>
+    {% endif %}
+
+    {% if user|has_role_or_admin:"Inventory Manager" %}
+      <li><a href="{% url 'data_collection_3:register_stock' %}">Register Stock</a></li>
+    {% endif %}
+
+    {% if user|has_role_or_admin:"Inventory Manager" or user|has_role:"Staff" %}
+    <li><a href="{% url 'data_collection_2:create_withdrawal' %}">User Withdrawal</a></li>
+    {% endif %}
+
+    {% if user|has_role_or_admin:"Inventory Manager" %}
+    <!-- Stock Management Dropdown -->
+    <li class="dropdown">
+      <a href="#" class="dropbtn">Stock Management</a>
+      <div class="dropdown-content">
+        <a href="/admin/">Database Admin Panel</a>
+        <a href="{% url 'data_collection_1:stock_admin' %}">Stock Admin</a>
+        <a href="{% url 'inventory:import_inventory' %}">Import Inventory CSV</a>
+        {% if module_flags.purchase_orders %}
+          <a href="{% url 'purchase_orders:record_purchase_order' %}">Record PO</a>
+          <a href="{% url 'purchase_orders:track_purchase_orders' %}">Track PO</a>
+        {% endif %}
+        {% if module_flags.location_tracking %}
+          <a href="{% url 'location_tracking:overview' %}">Allocation (Location)</a>
+        {% endif %}
+      </div>
+    </li>
+    {% endif %}
+
+    {% if module_flags.analytics and user|has_any_role:"Inventory Manager,Staff,Supplier,Leica Staff" %}
+      <li class="dropdown">
+        <a href="#" class="dropbtn">Reports &amp; Analytics</a>
+        <div class="dropdown-content">
+          {% if user|has_role_or_admin:"Inventory Manager" or user|has_role:"Staff" %}
+            <a href="{% url 'analytics:track_withdrawals' %}">Track Withdrawals</a>
+          {% endif %}
+          {% if user|has_role_or_admin:"Inventory Manager" or user|has_role:"Supplier" %}
+            <a href="{% url 'analytics:track_low_lots' %}">Track Low Lots</a>
+            <a href="{% url 'analytics:track_expired_lots' %}">Track Expired Lots</a>
+          {% endif %}
+          {% if user|has_role_or_admin:"Inventory Manager" %}
+            <a href="{% url 'analytics:download_report' %}">Download Report</a>
+            <a href="{% url 'analytics:inventory_analysis_forecasting' %}">Forecasting</a>
+            <a href="{% url 'analytics:intelligence' %}">Intelligence (Experimental)</a>
+          {% endif %}
+        </div>
+      </li>
+    {% endif %}
+
+    {% if module_flags.quality_control and user|has_role_or_admin:"Inventory Manager" %}
+      <li><a href="{% url 'quality_control:list_checks' %}">Quality Control</a></li>
+    {% endif %}
+
+    {% if user|has_role_or_admin:"Inventory Manager" %}
+      <!-- Management Dropdown -->
+      <li class="dropdown">
+        <a href="#" class="dropbtn">Management</a>
+        <div class="dropdown-content">
+          <a href="{% url 'inventory:manage_users' %}">Manage Users &amp; Roles</a>
+          <a href="{% url 'inventory:register_user' %}">Register User</a>
+          <a href="{% url 'inventory:manage_suppliers' %}">Manage Suppliers</a>
+          {% if module_flags.location_tracking %}
+            <a href="{% url 'inventory:manage_locations' %}">Manage Locations</a>
+          {% endif %}
+          <a href="{% url 'inventory:manage_product_codes' %}">Manage Product Codes</a>
+          <a href="{% url 'password_change' %}">Change Password</a>
+        </div>
+      </li>
+    {% endif %}
+
+    {% if user.is_authenticated %}
+      <li>
+        <form method="post" action="{% url 'logout' %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" style="background:none;border:none;color:blue;cursor:pointer;">Log out</button>
+        </form>
+      </li>
+    {% else %}
+      <li><a href="{% url 'login' %}">Log in</a></li>
+    {% endif %}
+  </ul>
+
+  {% if request.user.is_authenticated %}
+    {% with full_name=request.user.get_full_name %}
+      <div class="user-banner">
+        Logged in as <strong>{{ request.user.username }}</strong>
+        {% if full_name %}
+          ({{ full_name }})
+        {% endif %}
+      </div>
+    {% endwith %}
+  {% endif %}
+</nav>
+
+
+<!-- ✅ Dropdown Hover Delay Script -->
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const dropdowns = document.querySelectorAll(".dropdown");
+  
+      dropdowns.forEach(drop => {
+        let timer;
+        const content = drop.querySelector(".dropdown-content");
+  
+        drop.addEventListener("mouseenter", () => {
+          clearTimeout(timer);
+          content.classList.add("show");
+        });
+  
+        drop.addEventListener("mouseleave", () => {
+          timer = setTimeout(() => {
+            content.classList.remove("show");
+          }, 1000); // 1-second delay before hiding
+        });
+      });
+    });
+  </script>

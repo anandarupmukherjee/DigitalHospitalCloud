@@ -1,0 +1,78 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Help &amp; User Guide</title>
+  <link rel="stylesheet" type="text/css" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+  {% include "includes/navbar.html" %}
+
+  <div class="dashboard-container">
+    <div class="card">
+      <h1>Help &amp; User Guide</h1>
+      <p>This guide covers key workflows in the Inventory Management System, where to find them, and tips to avoid common issues.</p>
+
+      <h2>Navigation</h2>
+      <ul>
+        <li><strong>Dashboard</strong> (Navbar &gt; Dashboard): System status, charts, quick links. Help link lives here.</li>
+        <li><strong>Product List</strong> (Navbar): Browse/search products; scan a barcode to filter.</li>
+        <li><strong>Stock Management</strong> (Navbar &gt; Stock Management):
+          <ul>
+            <li><em>Stock Admin</em>: Add/edit products and lots.</li>
+            <li><em>Record/Track PO</em>: Purchase order capture and tracking.</li>
+            <li><em>Allocation (Location)</em>: Location tracking overview, add stock to location, transfer stock.</li>
+          </ul>
+        </li>
+        <li><strong>Reports &amp; Analytics</strong> (Navbar):
+          <ul>
+            <li><em>Track Withdrawals/Low/Expired</em>: Operational reports.</li>
+            <li><em>Download Report</em>: CSV/Excel exports.</li>
+            <li><em>Forecasting</em> and <em>Intelligence (Experimental)</em>: Advanced insights.</li>
+          </ul>
+        </li>
+        <li><strong>Management</strong> (Navbar): Users, suppliers, locations, product codes, password.</li>
+      </ul>
+
+      <h2>Core Tasks</h2>
+      <ul>
+        <li><strong>Register Stock</strong> (Stock Management &gt; Register Stock):
+          Scan a barcode to increment a lot; if the lot does not exist, it is created automatically.</li>
+        <li><strong>Create Withdrawal</strong> (Navbar): Barcode-first; manual mode dropdown only shows items with stock. Supports partial and volume withdrawals.</li>
+        <li><strong>Stock Admin</strong> (Stock Management &gt; Stock Admin):
+          Add/edit products and lots; supplier ref is the authoritative supplier value (auto-prefills on scanned products).</li>
+        <li><strong>Location Allocation</strong> (Stock Management &gt; Allocation (Location)):
+          <ul>
+            <li><em>Add Stock to Location</em>: Shows “Current Allocation for this Lot” table so you know per-location quantities before adding.</li>
+            <li><em>Transfer Stock</em>: Also shows “Current Allocation for this Lot”; only allows source locations with stock to reduce errors.</li>
+            <li><em>Overview</em>: Filterable table of location stocks.</li>
+          </ul>
+        </li>
+        <li><strong>Quality Control</strong> (Navbar when enabled):
+          Record QC checks. Product Lots QC shows in-stock lots only with color status (Green=Pass, Red=Fail, Amber=Pending/Waiting).</li>
+      </ul>
+
+      <h2>Analytics &amp; Intelligence</h2>
+      <ul>
+        <li><strong>Download Report</strong> (Reports &amp; Analytics): Export a single selected model with date filters; filenames are IMS_&lt;user&gt;_&lt;date&gt;.</li>
+        <li><strong>Forecasting</strong> (Reports &amp; Analytics): Demand/stock insights (experimental).</li>
+        <li><strong>Intelligence (Experimental)</strong> (Reports &amp; Analytics):
+          Charts and tables for suggested location transfers, expiry/ageing buckets, and slow movers.</li>
+      </ul>
+
+      <h2>Tips</h2>
+      <ul>
+        <li>Use barcode scanning where possible; fields auto-populate product, lot, expiry, and supplier ref.</li>
+        <li>For location moves, use “Current Allocation for this Lot” tables in Add/Transfer Stock (Stock Management &gt; Allocation) to pick valid source locations and quantities.</li>
+        <li>QC lots from Product Lots QC; color codes: Green = Pass, Red = Fail, Amber = Pending/Waiting.</li>
+        <li>Review Intelligence for suggested transfers and at-risk lots to reduce stockouts and expiry waste.</li>
+      </ul>
+
+      <h2>Need Help?</h2>
+      <p>Contact your system admin for access issues or data corrections.</p>
+    </div>
+  </div>
+</body>
+</html>
