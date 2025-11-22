@@ -1,0 +1,64 @@
+{% load custom_tags %}
+{% load static %}
+{% load feature_flags %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Export Data</title>
+    <link rel="stylesheet" href="{% static 'inventory/styles.css' %}">
+    <script src="{% static 'inventory/report_preview.js' %}" defer></script>
+
+</head>
+<body>
+
+    <!-- Navigation Bar -->
+    {% include "includes/navbar.html" %}
+
+
+  <div class="dashboard-container">
+    <h2>Export Data from Inventory System</h2>
+
+    <form method="get" id="downloadForm">
+        <label>Select Model:</label>
+        <select name="model" id="modelSelect">
+          {% for model in models %}
+            <option value="{{ model }}" {% if model == selected_model %}selected{% endif %}>{{ model }}</option>
+          {% endfor %}
+        </select>
+      
+        <label>Start Date:</label>
+        <input type="date" name="start_date" value="{{ start_date }}">
+      
+        <label>End Date:</label>
+        <input type="date" name="end_date" value="{{ end_date }}">
+      
+        <button type="submit" name="download" value="excel">Download Excel</button>
+        <button type="submit" name="download" value="csv">Download CSV</button>
+      </form>
+      
+      <hr>
+      <h3>Preview: {{ selected_model }}</h3>
+      <table>
+        <thead>
+          <tr>
+            {% for field in fields %}
+              <th>{{ field }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for obj in data %}
+            <tr>
+              {% for field in fields %}
+                <td>{{ obj|attr:field }}</td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+   
+      
+    </div>
+</body>
+</html>

@@ -1,0 +1,82 @@
+{% load static %}
+{% load feature_flags %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register Stock</title>
+  <link rel="stylesheet" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+  {% include "includes/navbar.html" %}
+
+  <div class="dashboard-container">
+    <div class="card form-card">
+      <h1>Register Stock</h1>
+      <p>Scan barcodes to increment the corresponding product item by one unit.</p>
+
+      {% if register_messages %}
+        <div class="messages">
+          <ul>
+            {% for message in register_messages %}
+              <li class="{{ message.tags }}">{{ message }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      <form method="post" id="register-stock-form">
+        {% csrf_token %}
+        <label for="id_barcode">Scan Barcode</label>
+        <input type="text" id="id_barcode" name="barcode" autocomplete="off" autofocus placeholder="Scan barcode here">
+
+        <button type="submit" class="btn btn-primary">Register Scan</button>
+      </form>
+    </div>
+
+    <div class="card table-card">
+      <h2>Recent Registrations</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Product</th>
+              <th>Product Code</th>
+              <th>Lot Number</th>
+              <th>Expiry Date</th>
+              <th>Quantity</th>
+              <th>User</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for registration in recent_registrations %}
+              <tr>
+                <td>{{ registration.timestamp|date:"Y-m-d H:i" }}</td>
+                <td>{{ registration.product_name|default:"N/A" }}</td>
+                <td>{{ registration.product_code|default:"N/A" }}</td>
+                <td>{{ registration.lot_number|default:"" }}</td>
+                <td>
+                  {% if registration.expiry_date %}
+                    {{ registration.expiry_date|date:"Y-m-d" }}
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+                <td>{{ registration.quantity }}</td>
+                <td>{{ registration.user.username|default:"System" }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="7">No stock registrations recorded yet.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

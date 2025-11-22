@@ -1,0 +1,70 @@
+{% load static %}
+{% load tracker_extras %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Logistics Tracker{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+<header class="app-header">
+    <div class="brand">Tray Logistics Monitor</div>
+    {% if user.is_authenticated %}
+        <nav class="user-nav">
+            <span class="welcome">Signed in as {{ user.get_username }}</span>
+            <a href="{% url 'password_change' %}">Change password</a>
+            <form action="{% url 'logout' %}" method="post">
+                {% csrf_token %}
+                <button type="submit">Log out</button>
+            </form>
+        </nav>
+    {% endif %}
+</header>
+{% if user.is_authenticated %}
+    <nav class="main-nav">
+        <a href="{% url 'dashboard' %}"
+           class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+            Dashboard
+        </a>
+        {% if user|is_manager %}
+            <a href="{% url 'tray-history' %}"
+               class="{% if request.resolver_match.url_name == 'tray-history' %}active{% endif %}">
+                Tray details
+            </a>
+            <a href="{% url 'configure-trays' %}"
+               class="{% if request.resolver_match.url_name == 'configure-trays' %}active{% endif %}">
+                Configure trays
+            </a>
+            <a href="{% url 'topic-management' %}"
+               class="{% if request.resolver_match.url_name == 'topic-management' %}active{% endif %}">
+                Topic management
+            </a>
+            <a href="{% url 'user-management' %}"
+               class="{% if request.resolver_match.url_name == 'user-management' %}active{% endif %}">
+                User management
+            </a>
+        {% endif %}
+    </nav>
+{% endif %}
+<main class="content">
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li class="message {{ message.tags }}">{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    {% block content %}{% endblock %}
+</main>
+<script>
+    window.APP_BASE_PATH = "{{ request.META.SCRIPT_NAME|default:'' }}";
+</script>
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script src="{% static 'js/dashboard.js' %}"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

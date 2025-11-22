@@ -1,0 +1,10 @@
+Django==3.2.8
+djangorestframework==3.12.4
+gunicorn==20.0.4
+openpyxl==3.1.2
+whitenoise==5.1.0
+pandas==1.5.3
+numpy==1.23.5
+statsmodels
+pyyaml
+paho-mqtt==1.6.1

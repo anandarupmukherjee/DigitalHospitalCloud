@@ -1,0 +1,98 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Location Tracking</title>
+    <link rel="stylesheet" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+    {% include "includes/navbar.html" %}
+
+    <div class="dashboard-container location-tracking-container">
+        <div class="card location-actions-card">
+            <div class="card-header flex-between">
+                <h2>Location Actions</h2>
+                <div class="action-buttons">
+                    <a href="{% url 'location_tracking:add_stock' %}" class="btn btn-primary">Add Stock to Location</a>
+                    <a href="{% url 'location_tracking:transfer_stock' %}" class="btn btn-secondary">Transfer Stock</a>
+                    <a href="{% url 'location_tracking:user_locations' %}" class="btn btn-secondary">User Locations</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-card-wrapper location-card-wrapper">
+            <div class="card table-card narrow-card">
+                <div class="card-header">
+                    <h2>Location Overview</h2>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Location</th>
+                                <th>Total Quantity</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in location_summary %}
+                                <tr>
+                                    <td>{{ entry.location.name }}</td>
+                                    <td>{{ entry.total }}</td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="2">No locations defined.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card table-card wide-card">
+                <div class="card-header flex-between">
+                    <h2>Detailed Stocks</h2>
+                </div>
+                <form method="get" class="inline-form" style="margin-bottom:10px;">
+                    <label for="location-filter">Filter by Location:</label>
+                    <select id="location-filter" name="location">
+                        <option value="">All Locations</option>
+                        {% for entry in location_summary %}
+                            <option value="{{ entry.location.id }}" {% if request.GET.location|stringformat:"s" == entry.location.id|stringformat:"s" %}selected{% endif %}>
+                                {{ entry.location.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-secondary">Apply</button>
+                </form>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Location</th>
+                                <th>Product</th>
+                                <th>Lot</th>
+                                <th>Quantity</th>
+                                <th>Last Updated</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stock in stocks %}
+                                <tr>
+                                    <td>{{ stock.location.name }}</td>
+                                    <td>{{ stock.product_item.product.name }}</td>
+                                    <td>{{ stock.product_item.lot_number }}</td>
+                                    <td>{{ stock.quantity }}</td>
+                                    <td>{{ stock.updated_at|date:"Y-m-d H:i" }}</td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="5">No location stock records yet.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

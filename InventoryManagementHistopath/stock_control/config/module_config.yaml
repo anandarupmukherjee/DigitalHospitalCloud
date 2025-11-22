@@ -1,0 +1,11 @@
+modules:
+  inventory_core:
+    enabled: true
+  purchase_orders:
+    enabled: false
+  quality_control:
+    enabled: true
+  analytics:
+    enabled: true
+  location_tracking:
+    enabled: false

@@ -1,0 +1,63 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Quality Checks</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+    {% include "includes/navbar.html" %}
+
+    <div class="dashboard-container">
+        <div class="card">
+            <div class="card-header">
+                <h2>Quality Checks</h2>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <a href="{% url 'quality_control:lot_status' %}" class="btn btn-secondary">Product Lots QC</a>
+                    <a href="{% url 'quality_control:create_check' %}" class="btn btn-primary">New Check</a>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Lot</th>
+                        <th>Test Reference</th>
+                        <th>Result</th>
+                        <th>Status</th>
+                        <th>Signed Off By</th>
+                        <th>Signed Off At</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for check in checks %}
+                    <tr>
+                        <td>{{ check.product_item.product.name }}</td>
+                        <td>{{ check.product_item.lot_number }}</td>
+                        <td>{{ check.test_reference|default:"—" }}</td>
+                        <td>{{ check.get_result_display|default:"—" }}</td>
+                        <td>{{ check.get_status_display }}</td>
+                        <td>{{ check.signed_off_by|default:'—' }}</td>
+                        <td>
+                            {% if check.signed_off_at %}
+                                {{ check.signed_off_at|date:'Y-m-d H:i' }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>{{ check.notes|default:'-' }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8">No quality checks recorded.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

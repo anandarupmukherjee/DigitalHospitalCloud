@@ -1,0 +1,79 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage Locations</title>
+    <link rel="stylesheet" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+    {% include "includes/navbar.html" %}
+
+    <div class="dashboard-container">
+        <div class="card form-card">
+            <h2>{% if editing %}Edit Location{% else %}Add Location{% endif %}</h2>
+            <form method="post">
+                {% csrf_token %}
+                {% if editing %}
+                    <input type="hidden" name="location_id" value="{{ editing.id }}">
+                {% endif %}
+                {{ form.as_p }}
+                <button type="submit" class="btn btn-primary">
+                    {% if editing %}Update Location{% else %}Add Location{% endif %}
+                </button>
+                {% if editing %}
+                    <a href="{% url 'inventory:manage_locations' %}" class="btn btn-secondary">Cancel</a>
+                {% endif %}
+            </form>
+        </div>
+
+        <div class="card table-card">
+            <h2>Locations</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>Status</th>
+                        <th>Mapped Products</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for location in locations %}
+                        <tr>
+                            <td>{{ location.name }}</td>
+                            <td>{{ location.description|default:"—" }}</td>
+                            <td>
+                                {% if location.is_active %}
+                                    <span class="status-active">Active</span>
+                                {% else %}
+                                    <span class="status-delayed">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% with mapped_products=location.mapped_products %}
+                                    <strong>{{ mapped_products|length }}</strong> products
+                                {% endwith %}
+                            </td>
+                            <td>
+                                {% with mapped_products=location.mapped_products %}
+                                    {% if mapped_products %}
+                                        <a class="btn btn-small" href="{% url 'inventory:location_products' location.id %}">View Products</a>
+                                    {% endif %}
+                                {% endwith %}
+                                <a class="btn btn-small" href="{% url 'inventory:manage_locations' %}?location_id={{ location.id }}">Edit</a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="4">No locations defined.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

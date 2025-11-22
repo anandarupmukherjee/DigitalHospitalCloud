@@ -1,0 +1,115 @@
+{% load static %}
+{% load feature_flags %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Analysis & Forecasting</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{% static 'inventory/scripts_analysis.js' %}" defer></script>
+    <link rel="stylesheet" type="text/css" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+    
+
+    <!-- Navigation Bar -->
+    {% include "includes/navbar.html" %}
+
+
+        <div class="dashboard-container">
+        <h1>Inventory Analysis & Forecasting</h1>
+
+        <form method="get" id="filter-form" class="filter-card">
+            <label for="range">Date Range:</label>
+            <select name="range" id="range" onchange="document.getElementById('filter-form').submit();">
+              <option value="7" {% if selected_range == '7' %}selected{% endif %}>Last 1 Week</option>
+              <option value="30" {% if selected_range == '30' %}selected{% endif %}>Last 1 Month</option>
+              <option value="365" {% if selected_range == '365' %}selected{% endif %}>Last 1 Year</option>
+            </select>
+          
+            <label for="limit" class="ml-4">Show Top:</label>
+            <select name="limit" id="limit" onchange="document.getElementById('filter-form').submit();">
+              <option value="10" {% if selected_limit == '10' %}selected{% endif %}>10 Items</option>
+              <option value="20" {% if selected_limit == '20' %}selected{% endif %}>20 Items</option>
+              <option value="all" {% if selected_limit == 'all' %}selected{% endif %}>All</option>
+            </select>
+          </form>
+          
+
+    <div class="chart-grid">
+        <div class="chart-tile" onclick="openModal('stockLevelsChart')">
+            <canvas id="stockLevelsChart"
+                    data-labels='{{ product_names|safe }}'
+                    data-stock='{{ current_stock|safe }}'
+                    data-thresholds='{{ stock_thresholds|safe }}'>
+            </canvas>
+        </div>
+
+        <div class="chart-tile" onclick="openModal('withdrawalsOverTimeChart')">
+            <canvas id="withdrawalsOverTimeChart"
+                    data-dates='{{ date_labels|safe }}'
+                    data-withdrawals='{{ withdrawal_counts|safe }}'>
+            </canvas>
+        </div>
+
+        <div class="chart-tile" onclick="openModal('forecastChart')">
+            <canvas id="forecastChart"
+                    data-dates='{{ date_labels|safe }}'
+                    data-withdrawals='{{ withdrawal_counts|safe }}'
+                    data-sma7='{{ sma_7|safe }}'
+                    data-sma14='{{ sma_14|safe }}'
+                    data-forecast-dates='{{ forecast_dates|safe }}'
+                    data-forecast-values='{{ forecast_values|safe }}'>
+            </canvas>
+        </div>
+
+        <div class="chart-tile" onclick="openModal('leadTimesChart')">
+            <canvas id="leadTimesChart"
+                    data-names='{{ product_names|safe }}'
+                    data-lead-times='{{ lead_times|safe }}'>
+            </canvas>
+        </div>
+
+        <div class="chart-tile" onclick="openModal('runOutForecastChart')">
+            <canvas id="runOutForecastChart"
+                    data-names='{{ product_names|safe }}'
+                    data-run-out-days='{{ run_out_days|safe }}'
+                    data-reorder-days='{{ reorder_days|safe }}'>
+            </canvas>
+        </div>
+
+        <div class="chart-tile" onclick="openModal('topConsumedItemsChart')">
+            <canvas id="topConsumedItemsChart"
+                    data-names='{{ top_consumed_names|safe }}'
+                    data-quantities='{{ top_consumed_quantities|safe }}'>
+            </canvas>
+        </div>
+    </div>
+
+    <div id="chartModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal()">&times;</span>
+            <canvas id="modalChart" class="modal-chart"></canvas>
+        </div>
+    </div>
+
+
+</div>
+    <!-- <h2>Debugging Data:</h2>
+<pre>
+Product Names: {{ product_names|safe }}
+Current Stock: {{ current_stock|safe }}
+Stock Thresholds: {{ stock_thresholds|safe }}
+Withdrawal Counts: {{ withdrawal_counts|safe }}
+SMA 7: {{ sma_7|safe }}
+SMA 14: {{ sma_14|safe }}
+Forecast Dates: {{ forecast_dates|safe }}
+Forecast Values: {{ forecast_values|safe }}
+Lead Times: {{ lead_times|safe }}
+Run-Out Days: {{ run_out_days|safe }}
+Reorder Days: {{ reorder_days|safe }}
+Top Consumed Names: {{ top_consumed_names|safe }}
+Top Consumed Quantities: {{ top_consumed_quantities|safe }}
+</pre> -->

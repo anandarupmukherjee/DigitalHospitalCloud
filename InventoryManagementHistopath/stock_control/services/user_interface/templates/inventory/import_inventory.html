@@ -1,0 +1,50 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Import Inventory</title>
+    <link rel="stylesheet" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+    {% include "includes/navbar.html" %}
+
+    <div class="dashboard-container">
+        <div class="card form-card">
+            <h2>Import Inventory CSV</h2>
+            <p>Admin-only: upload a CSV with columns like <code>code,name,threshold,supplier,lead_time_days,location</code>. Existing products are updated, new ones are created.</p>
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit" class="btn btn-primary">Upload &amp; Import</button>
+            </form>
+            {% if summary %}
+                <div class="info">
+                    Imported {{ summary.created }} created / {{ summary.updated }} updated{% if summary.errors %}, {{ summary.errors }} errors{% endif %}.
+                </div>
+            {% endif %}
+            {% if errors %}
+                <div class="error">
+                    <strong>Issues:</strong>
+                    <ul>
+                        {% for e in errors %}
+                            <li>{{ e }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="card form-card">
+            <h2>Reset Inventory</h2>
+            <p>Danger zone: choose what to clear. This affects lots/stock records immediately.</p>
+            <form method="post">
+                {% csrf_token %}
+                {{ reset_form.as_p }}
+                <button type="submit" name="reset_action" value="1" class="btn btn-secondary">Run Reset</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,168 @@
+{% load static %}
+{% load feature_flags %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Create Withdrawal</title>
+  <link rel="stylesheet" href="{% static 'inventory/styles.css' %}">
+  <!-- <script src="{% static 'inventory/scripts.js' %}" defer></script> -->
+
+
+  <script src="{% static 'inventory/barcode_fetch.js' %}"></script>
+  <script src="{% static 'inventory/withdrawal_mode.js' %}"></script>
+  <script src="{% static 'inventory/manual_product_fetch.js' %}"></script>
+  <script src="{% static 'inventory/mode_toggle.js' %}"></script>  
+  <script src="{% static 'inventory/unit_label_toggle.js' %}"></script>
+  <script src="{% static 'inventory/part_calculation.js' %}"></script> 
+  <script src="{% static 'inventory/barcode_parser.js' %}"></script> 
+</head>
+<body>
+  <!-- Navigation Bar (your original nav code) -->
+    <!-- Navigation Bar -->
+    {% include "includes/navbar.html" %}
+
+
+  <!-- Page Container -->
+  <div class="dashboard-container">
+    <div class="card form-card">
+      <h1>Create Withdrawal</h1>
+
+      <!-- Mode Toggle: Barcode Scanner (default) vs. Manual Entry -->
+      <div class="toggle-mode">
+        <label class="radio-label">
+          <input type="radio" name="mode" value="barcode" checked> Barcode Scanner
+        </label>
+        <label class="radio-label">
+          <input type="radio" name="mode" value="manual"> Manual Entry
+        </label>
+      </div>
+
+      <form method="POST" action="{% url 'data_collection_2:create_withdrawal' %}">
+        {% csrf_token %}
+        {% if form.errors %}
+          <div class="form-errors">
+            <ul>
+              {% for field, errors in form.errors.items %}
+                <li><strong>{{ field }}:</strong> {{ errors|striptags }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        
+        <!-- Hidden field for product's units per quantity (used by JS for partial calcs) -->
+        <input type="hidden" id="id_units_per_quantity" name="units_per_quantity" value="">
+
+        <!-- Barcode Scanner Section (shown by default) -->
+        <div id="barcode-section">
+          <input type="hidden" id="parsed_product_code_hidden" name="product_code_from_barcode">
+
+          <!-- Barcode input -->
+          <label for="id_barcode">Scan Barcode:</label>
+          <input type="text" id="id_barcode" name="barcode" autocomplete="off">
+
+          <!-- <input type="text" id="id_barcode" name="barcode" autocomplete="off" onkeydown="return event.key !== 'Enter';"> -->
+
+
+          <label>Product Code:</label>
+          <input type="text" id="parsed_product_code" readonly>
+
+          <label>Lot Number:</label>
+          <input type="text" id="parsed_lot_number" readonly>
+
+          <label>Expiry Date:</label>
+          <input type="text" id="parsed_expiry_date" readonly>
+
+          <label for="id_product_name">Product Name:</label>
+          <input type="text" id="id_product_name" name="product_name" readonly>
+
+          <!--trying to sort barcode recording submission errors. Manual mode seems to be working fine-->
+          <input type="hidden" id="lot_number_field" name="lot_number">
+          <input type="hidden" id="expiry_date_field" name="expiry_date">
+
+
+
+          <div id="barcode-product-details">
+            <p>Stock: <span id="stock-display"></span></p>
+            <p>Units per Item: <span id="units-display"></span></p>
+          </div>
+        </div>
+
+
+
+        <!-- Manual Entry Section (hidden by default) -->
+        <div id="manual-section" style="display: none;">
+          <label for="id_product_dropdown">Select Product:</label>
+          <select id="id_product_dropdown" name="product_dropdown">
+            <option value="">-- Select Product --</option>
+            {% for p in products %}
+              <option value="{{ p.id }}">{{ p.name }}</option>
+            {% endfor %}
+          </select>
+          
+          <!-- NEW: Fetch Details Button
+          <button type="button" id="fetch-manual-details" class="btn btn-secondary">Fetch Details</button> -->
+
+          <label for="id_barcode_manual">Barcode (auto-filled):</label>
+          <input type="text" id="id_barcode_manual" name="barcode_manual" readonly>
+
+          <div id="manual-product-details">
+            <p>Stock: <span id="manual-stock-display"></span></p>
+            <p>Units per Item: <span id="manual-units-display"></span></p>
+          </div>
+        </div>
+
+        
+        <input type="hidden" id="id_units_per_quantity" name="units_per_quantity">
+
+
+        <!-- Withdrawal Mode Selection -->
+        <div class="withdrawal-mode-selection">
+          <label>
+            <input type="radio" name="withdrawal_mode" value="full" checked> Full Item Withdrawal
+          </label>
+          <label>
+            <input type="radio" name="withdrawal_mode" value="part"> Part of Item Withdrawal
+          </label>
+        </div>
+
+        <!-- Full Item Withdrawal Section -->
+        <div id="full_item_section">
+          <label for="id_quantity">Full Items Withdrawal:</label>
+          {{ form.quantity }}  
+        </div>
+
+        <!-- Part Withdrawal Section (hidden by default) -->
+        <div id="part_item_section" style="display: none;">
+          <label for="id_parts_withdrawn">Parts Withdrawn:</label>
+          {{ form.parts_withdrawn }}
+          
+          <label for="id_full_items">Full Items (Computed):</label>
+          <input type="number" id="id_full_items" name="full_items" value="0" readonly>
+
+          <label for="id_parts_remaining">Parts Remaining:</label>
+          <input type="number" id="id_parts_remaining" name="parts_remaining" value="0" readonly>
+        </div>
+
+        <!-- Volume-based Section (new) -->
+        <div id="volume-withdrawal-section" style="display: none;">
+          <label for="id_volume_select">Volume to Withdraw (auto-generated increments):</label>
+          <select id="id_volume_select" name="volume_select">
+            <!-- Populated dynamically in scripts.js if product is volume -->
+          </select>
+        </div>
+
+        <!-- Withdrawal Type (unit/volume) -->
+        <label for="id_withdrawal_type">Withdrawal Type:</label>
+        {{ form.withdrawal_type }}
+        <span id="unit_label">units</span>
+        
+        <button type="submit" class="btn btn-primary">Submit Withdrawal</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
+

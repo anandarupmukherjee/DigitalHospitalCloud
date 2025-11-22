@@ -1,0 +1,30 @@
+<canvas id="topProductsChart"></canvas>
+<script>
+new Chart(document.getElementById('topProductsChart'), {
+  type: 'bar',
+  data: {
+    labels: {{ top_products_labels|safe }},
+    datasets: [{
+      label: 'Withdrawn Units',
+      data: {{ top_products_counts|safe }},
+      backgroundColor: 'rgba(255, 159, 64, 0.6)'
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      title: { display: true, text: 'Top Withdrawn Products' }
+    },
+    scales: {
+      x: {
+        title: { display: true, text: 'Units Withdrawn' }
+      },
+      y: {
+        title: { display: true, text: 'Product' }
+      }
+    }
+  }
+});
+</script>

@@ -1,0 +1,30 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit User - {{ user_obj.username }}</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+
+    {% include "includes/navbar.html" %}
+
+    <div class="dashboard-container">
+        <div class="card form-card">
+            <h1>Edit User: {{ user_obj.username }}</h1>
+
+            <form method="post">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </form>
+
+            <a href="{% url 'inventory:manage_users' %}" class="btn btn-secondary">Back to Users</a>
+        </div>
+    </div>
+
+</body>
+</html>
