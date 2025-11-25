@@ -1,4 +1,22 @@
+function ensureBuildAppUrl() {
+    if (window.__buildAppUrl) {
+        return window.__buildAppUrl;
+    }
+    const helper = function (path) {
+        const dataset = document.body ? document.body.dataset || {} : {};
+        const base = (window.__APP_BASE_PATH ||
+            (window.__APP_BASE_PATH = (dataset.rootUrl || "").replace(/\/+$/, ""))) || "";
+        if (path[0] !== "/") {
+            path = "/" + path;
+        }
+        return base ? `${base}${path}` : path;
+    };
+    window.__buildAppUrl = helper;
+    return helper;
+}
+
 const barcodeInput = document.getElementById("id_barcode");
+const buildAppUrl = ensureBuildAppUrl();
 
 if (barcodeInput) {
     barcodeInput.addEventListener("change", async function () {
@@ -6,7 +24,9 @@ if (barcodeInput) {
         if (!barcode) return;
 
         try {
-            const response = await fetch(`/data/parse-barcode/?raw=${encodeURIComponent(barcode)}`);
+            const response = await fetch(
+                buildAppUrl(`/data/parse-barcode/?raw=${encodeURIComponent(barcode)}`)
+            );
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || "Fetch failed");
 
@@ -33,7 +53,9 @@ if (barcodeInput) {
             }
 
             // ✅ Also populate hidden fields for POST submission
-            const codeHidden = document.getElementById("product_code_from_barcode");
+            const codeHidden =
+                document.getElementById("parsed_product_code_hidden") ||
+                document.getElementById("product_code_from_barcode");
             const lotHidden = document.getElementById("lot_number_field");
             const expiryHidden = document.getElementById("expiry_date_field");
 

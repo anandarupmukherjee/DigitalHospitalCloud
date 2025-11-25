@@ -18,7 +18,8 @@
   <script src="{% static 'inventory/part_calculation.js' %}"></script> 
   <script src="{% static 'inventory/barcode_parser.js' %}"></script> 
 </head>
-<body>
+{% with request.META.SCRIPT_NAME|default:'' as script_prefix %}
+<body data-root-url="{{ script_prefix }}">
   <!-- Navigation Bar (your original nav code) -->
     <!-- Navigation Bar -->
     {% include "includes/navbar.html" %}
@@ -165,4 +166,4 @@
   </div>
 </body>
 </html>
-
+{% endwith %}

@@ -26,6 +26,8 @@
       <div class="dropdown-content">
         <a href="/admin/">Database Admin Panel</a>
         <a href="{% url 'data_collection_1:stock_admin' %}">Stock Admin</a>
+        <a href="{% url 'inventory:product_supplier_mapping' %}">Product-Supplier Mapping</a>
+        <a href="{% url 'inventory:import_inventory' %}">Import Inventory CSV</a>
         {% if module_flags.purchase_orders %}
           <a href="{% url 'purchase_orders:record_purchase_order' %}">Record PO</a>
           <a href="{% url 'purchase_orders:track_purchase_orders' %}">Track PO</a>
