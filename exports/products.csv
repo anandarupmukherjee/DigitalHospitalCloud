@@ -1,0 +1,452 @@
+product_code,name,supplier_display,location,threshold,lead_time_days
+5055331330505,BOND-PRIME Dewax Solution,Leica,,0,2
+5055331330512,BOND-PRIME Wash Solution Concentrate,Leica,,0,2
+5055331330529,BOND-PRIME Epitope Retrieval Solution 1,Leica,,0,2
+5055331330536,BOND-PRIME Epitope Retrieval Solution 2,Leica,,0,2
+5055331330550,BOND-PRIME Hematoxylin,Leica,,0,2
+5055331316639,RNA ISH Anti-Fluorescein Antibody,Leica,,0,2
+5055331316622,RNA ISH Anti-Biotin Antibody,Leica,,0,2
+5055331316615,RNA ISH Stringency Wash Solution,Leica,,0,2
+5055331316608,RNA ISH Anti-Fluorescein Antibody,Leica,,0,2
+5055331327307,BOND Hybridization Solution,Leica,,0,2
+5055331316585,BOND Dewax Solution,Leica,,0,2
+5055331316578,BOND Primary Antibody Diluent,Leica,,0,2
+5055331316561,BOND DAB Enhancer,Leica,,0,2
+5055331316554,BOND Enzyme Pre-treatment Kit,Leica,,0,2
+5055331316547,BOND Wash Solution 10x Concentrate,Leica,,0,2
+5055331316530,BOND Epitope Retrieval Solution 2,Leica,,0,2
+5055331316523,BOND Epitope Retrieval Solution 1,Leica,,0,2
+5055331331014,BOND-PRIME Polymer DAB Detection System,Leica,,0,2
+5055331330574,BOND-PRIME Polymer AP Detection System,Leica,,0,2
+5055331317599,BOND Polymer Refine Red Detection,Leica,,0,2
+5055331337504,ChromoPlex 1 Dual Detection for BOND-PRIME,Leica,,0,2
+5055331319807,BOND ChromoPlex1 Dual Detection,Leica,,0,2
+5055331326102,BOND FISH Kit,Leica,,0,2
+5055331322234,BOND ChromoPlex1 Dual Detection,Leica,,0,2
+5055331310460,BOND Polymer Refine Detection,Leica,,0,2
+5055331330994,BOND RNAScope Brown Detection,Leica,,0,2
+5055331316424,Novocastra Lyophilized Mouse Monoclonal Antibody Beta-Dystroglycan,Leica,,0,2
+5055331310521,Novocastra Lyophilized Mouse Monoclonal Antibody Utrophin (N-terminus),Leica,,0,2
+5055331310774,Novocastra Lyophilized Mouse Monoclonal Antibody Delta-Sarcoglycan,Leica,,0,2
+5055331310439,Novocastra Lyophilized Mouse Monoclonal Antibody Dystrophin (Rod Domain),Leica,,0,2
+5055331310392,Novocastra Lyophilized Mouse Monoclonal Antibody Dystrophin (C-terminus),Leica,,0,2
+5055331310354,Novocastra Lyophilized Mouse Monoclonal Antibody Dystrophin (N-terminus),Leica,,0,2
+5055331309846,Novocastra Lyophilized Mouse Monoclonal Antibody Emerin,Leica,,0,2
+5055331309082,Novocastra Lyophilized Mouse Monoclonal Antibody Gamma-Sarcoglycan,Leica,,0,2
+5055331308511,Novocastra Lyophilized Mouse Monoclonal Antibody Dysferlin,Leica,,0,2
+5055331308528,Novocastra Lyophilized Mouse Monoclonal Antibody Dysferlin,Leica,,0,2
+5055331311788,Novocastra Liquid Mouse Monoclonal Antibody Cytokeratin 20,Leica,,0,2
+5055331317193,Novocastra Liquid Mouse Monoclonal Antibody Cytokeratin (8/18),Leica,,0,2
+5055331326843,Novocastra Liquid Mouse Monoclonal Antibody Multi-Cytokeratin,Leica,,0,2
+5055331326447,Novocastra Liquid Mouse Monoclonal Antibody Alpha Fetoprotein,Leica,,0,2
+5055331322555,Novocastra Liquid Mouse Monoclonal Antibody p80 (Anaplastic Lymphoma Kinase),Leica,,0,2
+5055331317414,"Novocastra Liquid Mouse Monoclonal Antibody Alpha-Methylacyl-CoA Racemase (AMACR, p504S)",Leica,,0,2
+5055331328403,Novocastra Liquid Mouse Monoclonal Antibody Androgen Receptor,Leica,,0,2
+5055331317100,Novocastra Liquid Mouse Monoclonal Antibody Alpha-Sarcoglycan (Adhalin),Leica,,0,2
+5055331326454,Novocastra Liquid Mouse Monoclonal Antibody Beta-Catenin,Leica,,0,2
+5055331316226,Novocastra Liquid Mouse Monoclonal Antibody Bcl-2 Oncoprotein,Leica,,0,2
+5055331316141,Novocastra Liquid Mouse Monoclonal Antibody Bcl-6,Leica,,0,2
+5055331316356,Novocastra Liquid Mouse Monoclonal Antibody Beta-Sarcoglycan,Leica,,0,2
+5055331315816,Novocastra Liquid Mouse Monoclonal Antibody CA125 (Ovarian Cancer Antigen),Leica,,0,2
+5055331315762,Novocastra Liquid Mouse Monoclonal Antibody Carbonic Anhydrase IX,Leica,,0,2
+5055331318411,Novocastra Liquid Mouse Monoclonal Antibody Calcitonin,Leica,,0,2
+5055331315571,Novocastra Liquid Mouse Monoclonal Antibody Calretinin,Leica,,0,2
+5055331315304,Novocastra Liquid Mouse Monoclonal Antibody c-erbB-2 Oncoprotein,Leica,,0,2
+5055331315229,"Novocastra Liquid
+Mouse Monoclonal Antibody
+c-erbB-2 Oncoprotein",Leica,,0,2
+5055331315106,Novocastra Liquid Mouse Monoclonal Antibody CD10,Leica,,0,2
+5055331314963,Novocastra Liquid Mouse Monoclonal Antibody c-kit Oncoprotein (CD117),Leica,,0,2
+5055331325785,Novocastra Liquid Rabbit Monoclonal Antibody c-kit Oncoprotein (CD117),Leica,,0,2
+5055331314901,Novocastra Liquid Mouse Monoclonal Antibody CD11c,Leica,,0,2
+5055331318466,Novocastra Liquid Mouse Monoclonal Antibody CD123,Leica,,0,2
+5055331326430,Novocastra Liquid Mouse Monoclonal Antibody CD13,Leica,,0,2
+5055331325518,Novocastra Liquid Mouse Monoclonal Antibody CD15 (MMA),Leica,,0,2
+5055331326461,Novocastra Liquid Mouse Monoclonal Antibody CD16,Leica,,0,2
+5055331323712,Novocastra Liquid Mouse Monoclonal Antibody CD163,Leica,,0,2
+5055331314475,Novocastra Liquid Mouse Monoclonal Antibody CD19,Leica,,0,2
+5055331314352,Novocastra Liquid Mouse Monoclonal Antibody CD1a,Leica,,0,2
+5055331314178,Novocastra Liquid Mouse Monoclonal Antibody CD20,Leica,,0,2
+5055331314086,Novocastra Liquid Mouse Monoclonal Antibody CD21,Leica,,0,2
+5055331314277,Novocastra Liquid Mouse Monoclonal Antibody CD2 (LFA-2),Leica,,0,2
+5055331314000,Novocastra Liquid Mouse Monoclonal Antibody CD23,Leica,,0,2
+5055331313690,Novocastra Liquid Mouse Monoclonal Antibody CD30,Leica,,0,2
+5055331325808,Novocastra Liquid Mouse Monoclonal Antibody CD31 (PECAM-1),Leica,,0,2
+5055331313546,Novocastra Liquid Mouse Monoclonal Antibody CD33,Leica,,0,2
+5055331313850,Novocastra Liquid Mouse Monoclonal Antibody CD3,Leica,,0,2
+5055331313430,Novocastra Liquid Mouse Monoclonal Antibody CD38,Leica,,0,2
+5055331323767,Novocastra Liquid Mouse Monoclonal Antibody CD4,Leica,,0,2
+5055331313072,Novocastra Liquid Mouse Monoclonal Antibody CD5,Leica,,0,2
+5055331323644,Novocastra Liquid Mouse Monoclonal Antibody CD56 (NCAM),Leica,,0,2
+5055331322319,Novocastra Liquid Mouse Monoclonal Antibody CD68,Leica,,0,2
+5055331326423,Novocastra Liquid Mouse Monoclonal Antibody CD71,Leica,,0,2
+5055331312631,Novocastra Liquid Mouse Monoclonal Antibody CD7,Leica,,0,2
+5055331325501,Novocastra Liquid Mouse Monoclonal Antibody CD79a (JCB117),Leica,,0,2
+5055331322890,Novocastra Liquid Mouse Monoclonal Antibody CD8,Leica,,0,2
+5055331318312,Novocastra Liquid Mouse Monoclonal Antibody CD99,Leica,,0,2
+5055331326850,Novocastra Liquid Mouse Monoclonal Antibody Carcinoembryonic Antigen,Leica,,0,2
+5055331326478,Novocastra Liquid Mouse Monoclonal Antibody Chromogranin A,Leica,,0,2
+5055331326416,Novocastra Liquid Mouse Monoclonal Antibody Cytokeratin 17,Leica,,0,2
+5055331311726,Novocastra Liquid Mouse Monoclonal Antibody Cytokeratin 20,Leica,,0,2
+5055331311566,Novocastra Liquid Mouse Monoclonal Antibody Cytokeratin 5,Leica,,0,2
+5055331311450,Novocastra Liquid Mouse Monoclonal Antibody Cytokeratin 7,Leica,,0,2
+5055331311399,Novocastra Liquid Mouse Monoclonal Antibody Cytokeratin 7,Leica,,0,2
+5055331310897,Novocastra Liquid Mouse Monoclonal Antibody Cyclin D1,Leica,,0,2
+5055331310668,Novocastra Liquid Mouse Monoclonal Antibody Desmin,Leica,,0,2
+5055331310583,Novocastra Liquid Mouse Monoclonal Antibody DOG-1,Leica,,0,2
+5055331320308,Novocastra Liquid Mouse Monoclonal Antibody E-Cadherin,Leica,,0,2
+5055331309969,Novocastra Liquid Mouse Monoclonal Antibody Epidermal Growth Factor Receptor,Leica,,0,2
+5055331309891,Novocastra Liquid Mouse Monoclonal Antibody Epithelial Membrane Antigen,Leica,,0,2
+5055331309785,Novocastra Liquid Mouse Monoclonal Antibody Endothelial Cell Marker (CD34),Leica,,0,2
+5055331309617,"Estrogen Receptor Clone 6F11  Liquid Concentrate Primary Antibody, Novocastra",Leica,,0,2
+5055331309624,Novocastra Liquid Mouse Monoclonal Antibody Estrogen Receptor,Leica,,0,2
+5055331309341,Novocastra Liquid Mouse Monoclonal Antibody EZH2 (Enhancer of Zeste Homolog 2 (Drosophila)),Leica,,0,2
+5055331309174,Novocastra Liquid Mouse Monoclonal Antibody Folate Receptor Alpha,Leica,,0,2
+5055331308887,Novocastra Liquid Mouse Monoclonal Antibody Gross Cystic Disease Fluid Protein-15,Leica,,0,2
+5055331308825,Novocastra Liquid Mouse Monoclonal Antibody Geminin,Leica,,0,2
+5055331325761,Novocastra Liquid Mouse Monoclonal Antibody Glial Fibrillary Acidic Protein,Leica,,0,2
+5055331308689,Novocastra Liquid Mouse Monoclonal Antibody Granzyme B,Leica,,0,2
+5055331328410,Novocastra Liquid Mouse Monoclonal Antibody Human Herpesvirus (Type 8) (latent nuclear antigen),Leica,,0,2
+5055331319326,Novocastra Liquid Mouse Monoclonal Antibody Melanoma Marker (HMB45),Leica,,0,2
+5055331318541,Novocastra Liquid Mouse Monoclonal Antibody Helicobacter pylori,Leica,,0,2
+5055331308023,Novocastra Liquid Mouse Monoclonal Antibody Immunoglobulin A,Leica,,0,2
+5055331307965,Novocastra Liquid Mouse Monoclonal Antibody Immunoglobulin D,Leica,,0,2
+5055331317711,Novocastra Liquid Mouse Monoclonal Antibody Immunoglobulin G,Leica,,0,2
+5055331307880,Novocastra Liquid Mouse Monoclonal Antibody Immunoglobulin M,Leica,,0,2
+5055331318350,Novocastra Liquid Mouse Monoclonal Antibody Inhibin Alpha,Leica,,0,2
+5055331307637,Novocastra Liquid Mouse Monoclonal Antibody Kappa Light Chain,Leica,,0,2
+5055331307507,Novocastra Liquid Mouse Monoclonal Antibody Ki67 Antigen,Leica,,0,2
+5055331307408,Novocastra Liquid Mouse Monoclonal Antibody Lambda Light Chain,Leica,,0,2
+5055331328236,Novocastra Liquid Mouse Monoclonal Antibody Langerin,Leica,,0,2
+5055331323132,Novocastra Liquid Mouse Monoclonal Antibody CD45,Leica,,0,2
+5055331307125,Novocastra Liquid Mouse Monoclonal Antibody Cytokeratin 14,Leica,,0,2
+5055331306593,Novocastra Liquid Mouse Monoclonal Antibody Melan A,Leica,,0,2
+5055331306487,Novocastra Liquid Mouse Monoclonal Antibody Mesothelin,Leica,,0,2
+5055331306296,Novocastra Liquid Mouse Monoclonal Antibody Mismatch Repair Protein (MLH1),Leica,,0,2
+5055331318572,Novocastra Liquid Mouse Monoclonal Antibody Muscle Specific Actin,Leica,,0,2
+5055331328809,Novocastra Liquid Mouse Monoclonal Antibody Mismatch Repair Protein 2 (MSH2),Leica,,0,2
+5055331306074,Novocastra Liquid Mouse Monoclonal Antibody Mismatch Repair Protein 6 (MSH6),Leica,,0,2
+5055331317773,Novocastra Liquid Mouse Monoclonal Antibody Multiple Myeloma Oncogene 1 (MUM-1),Leica,,0,2
+5055331305725,Novocastra Liquid Mouse Monoclonal Antibody Myf-4 (Rhabdomyosarcoma Marker),Leica,,0,2
+5055331305572,Novocastra Liquid Mouse Monoclonal Antibody Napsin A,Leica,,0,2
+5055331325747,Novocastra Liquid Mouse Monoclonal Antibody Neurofilament 200 kD,Leica,,0,2
+5055331305152,Novocastra Liquid Mouse Monoclonal Antibody Oct-3/4,Leica,,0,2
+5055331304902,Novocastra Liquid Mouse Monoclonal Antibody p53 Protein (DO-7),Leica,,0,2
+5055331328229,Novocastra Liquid Mouse Monoclonal Antibody p57 Protein (Kip2),Leica,,0,2
+5055331320063,Novocastra Liquid Mouse Monoclonal Antibody p63 Protein,Leica,,0,2
+5055331323897,Novocastra Liquid Mouse Monoclonal Antibody Pax-5,Leica,,0,2
+5055331303271,Novocastra Liquid Mouse Monoclonal Antibody Protein Gene Product 9.5,Leica,,0,2
+5055331302908,Novocastra Liquid Mouse Monoclonal Antibody Progesterone Receptor,Leica,,0,2
+5055331303165,Novocastra Liquid Mouse Monoclonal Antibody Progesterone Receptor Clone (16) (Concentrated Liquid Antibody Format),Leica,,0,2
+5055331303066,Novocastra Liquid Mouse Monoclonal Antibody Progesterone Receptor,Leica,,0,2
+5055331303011,Novocastra Liquid Mouse Monoclonal Antibody p53 Protein (DO-7),Leica,,0,2
+5055331302793,Novocastra Liquid Mouse Monoclonal Antibody Placental Alkaline Phosphatase,Leica,,0,2
+5055331318480,Novocastra Liquid Mouse Monoclonal Antibody Mismatch Repair Protein (PMS2),Leica,,0,2
+5055331325723,Novocastra Liquid Mouse Monoclonal Antibody Prostate Specific Antigen,Leica,,0,2
+5055331328243,Novocastra Liquid Mouse Monoclonal Antibody Parathyroid Hormone,Leica,,0,2
+5055331329707,Novocastra Liquid Rabbit Monoclonal Antibody S100 (EP32),Leica,,0,2
+5055331325730,Novocastra Liquid Mouse Monoclonal Antibody Alpha Smooth Muscle Actin,Leica,,0,2
+5055331301352,Novocastra Liquid Mouse Monoclonal Antibody Synaptophysin,Leica,,0,2
+5055331301208,Novocastra Liquid Mouse Monoclonal Antibody Terminal Deoxynucleotidyl Transferase,Leica,,0,2
+5055331300935,Novocastra Liquid Mouse Monoclonal Antibody Thyroid Peroxidase,Leica,,0,2
+5055331300676,Novocastra Liquid Mouse Monoclonal Antibody Thyroid Transcription Factor-1,Leica,,0,2
+5055331300584,Novocastra Liquid Mouse Monoclonal Antibody Tyrosinase,Leica,,0,2
+5055331300362,Novocastra Liquid Mouse Monoclonal Antibody Vimentin,Leica,,0,2
+5055331300294,Novocastra Liquid Mouse Monoclonal Antibody Vimentin,Leica,,0,2
+5055331322470,Novocastra Liquid Mouse Monoclonal Antibody von Willebrand Factor,Leica,,0,2
+5055331300096,Novocastra Liquid Mouse Monoclonal Antibody Wilms’ Tumor,Leica,,0,2
+5055331306548,Novocastra Lyophilized Mouse Monoclonal Antibody Merosin Laminin Alpha 2 Chain,Leica,,0,2
+5055331301482,Novocastra Lyophilized Mouse Monoclonal Antibody Spectrin,Leica,,0,2
+5055331305121,BOND Open Containers (30mL),Leica,,0,2
+5055331305114,BOND Open Containers (7mL),Leica,,0,2
+5055331305107,BOND Titration Kit,Leica,,0,2
+5055331305091,BOND Titration Container Inserts,Leica,,0,2
+5055331304780,"BOND™ Ready-to-Use Primary Antibody
+Carcinoembryonic Antigen (II-7)",Leica,,0,2
+5055331304773,BOND Ready-to-Use Primary Antibody Prostatic Acid Phosphatase (PASE/4LJ),Leica,,0,2
+5055331325716,BOND Ready-to-Use Primary Antibody CD117 (EP10),Leica,,0,2
+5055331320421,Estrogen Receptor Clone 6F11 Ready-To-Use Primary Antibody for BOND,Leica,,0,2
+5055331304766,BOND Ready-To-Use Primary Antibody Human Chorionic Gonadotrophin (Polyclonal),Leica,,0,2
+5055331329684,BOND Ready-to-Use Primary Antibody p16 (6H12),Leica,,0,2
+5055331304759,BOND Ready-To-Use Primary Antibody Mast Cell Tryptase (10D11),Leica,,0,2
+5055331321541,BOND Ready-to-Use Primary Antibody Cytokeratin 20 (Ks20.8),Leica,,0,2
+5055331304735,BOND Ready-to-Use Primary Antibody Glial Fibrillary Acidic Protein (GA5),Leica,,0,2
+5055331319104,BOND Ready-to-Use Primary Antibody Melanoma Marker (HMB45),Leica,,0,2
+5055331329714,BOND Ready-to-Use Primary Antibody S-100 (EP32),Leica,,0,2
+5055331304728,BOND Ready-to-Use Primary Antibody Desmin (DE-R-11),Leica,,0,2
+5055331304704,BOND Ready-to-Use Primary Antibody Epithelial Membrane Antigen (GP1.4),Leica,,0,2
+5055331321558,BOND Ready-to-Use Primary Antibody Cytokeratin 20 (Ks20.8),Leica,,0,2
+5055331304681,BOND Ready-to-Use Primary Antibody CD45 (X16/99),Leica,,0,2
+5055331322494,BOND Ready-to-Use Primary Antibody Melan A (A103),Leica,,0,2
+5055331326201,BOND Ready-to-Use Primary Antibody Cyclin D1 (EP12),Leica,,0,2
+5055331328311,BOND Ready-to-Use Primary Antibody Human Herpesvirus (Type 8),Leica,,0,2
+5055331328205,BOND Ready-to-Use Primary Antibody Muc-1 Glycoprotein (Ma695),Leica,,0,2
+5055331328212,BOND Ready-to-Use Primary Antibody Muc-5AC Glycoprotein (CLH2),Leica,,0,2
+5055331328304,BOND Ready-to-Use Primary Antibody Muc-6 Glycoprotein (CLH5),Leica,,0,2
+5055331326027,BOND Ready-to-Use Primary Antibody von Willebrand Factor (36B11),Leica,,0,2
+5055331304667,BOND Ready-to-Use Primary Antibody p53 (DO-7),Leica,,0,2
+5055331325709,BOND Ready-to-Use Primary Antibody Immunoglobulin D (DRN1C),Leica,,0,2
+5055331326485,BOND Ready-to-Use Primary Antibody Napsin A (IP64),Leica,,0,2
+5055331304650,BOND Ready-to-Use Primary Antibody Cytokeratin 8/18 (5D3),Leica,,0,2
+5055331320407,BOND Ready-to-Use Primary Antibody Cytokeratin 14 (LL002),Leica,,0,2
+5055331318039,BOND Ready-to-Use Primary Antibody Beta-Catenin (17C2),Leica,,0,2
+5055331304643,BOND Ready-to-Use Primary Antibody CD138 (MI15),Leica,,0,2
+5055331325600,BOND Ready-to-Use Primary Antibody CD163 (10D6),Leica,,0,2
+5055331318008,BOND Ready-to-Use Primary Antibody Tartrate-Resistant Acid Phosphatase (26E5),Leica,,0,2
+5055331328335,BOND Ready-to-Use Primary Antibody Cytokeratin (AE1/AE3),Leica,,0,2
+5055331321565,BOND Ready-to-Use Primary Antibody p63 (7JUL),Leica,,0,2
+5055331318022,BOND Ready-to-Use Primary Antibody Cytokeratin 17 (E3),Leica,,0,2
+5055331304612,BOND Ready-to-Use Primary Antibody Bcl-2 (bcl-2/100/D5),Leica,,0,2
+5055331304605,BOND Ready-to-Use Primary Antibody Ki67 (MM1),Leica,,0,2
+5055331322500,BOND Ready-to-Use Primary Antibody CD3 (LN10),Leica,,0,2
+5055331318015,BOND Ready-to-Use Primary Antibody Multiple Myeloma Oncogene 1 (MUM1) (EAU32),Leica,,0,2
+5055331323927,BOND Ready-to-Use Primary Antibody CD10 (56C6),Leica,,0,2
+5055331304599,BOND Ready-to-Use Primary Antibody Cytokeratin HMW (34βE12),Leica,,0,2
+5055331320414,BOND Ready-to-Use Primary Antibody Cytokeratin 7 (RN7),Leica,,0,2
+5055331304582,BOND Ready-To-Use Primary Antibody CD45RO (UCHL1),Leica,,0,2
+5055331304575,Estrogen Receptor Clone 6F11 Ready-To-Use Primary Antibody for BOND,Leica,,0,2
+5055331325921,BOND Ready-to-Use Primary Antibody Muc-2 (Ccp58),Leica,,0,2
+5055331304551,BOND Ready-to-Use Primary Antibody Placental Alkaline Phosphatase (8A9),Leica,,0,2
+5055331326515,BOND Ready-to-Use Primary Antibody p40 (BC28),Leica,,0,2
+5055331304544,BOND Ready-to-Use Primary Antibody CD5 (4C7),Leica,,0,2
+5055331304537,BOND Ready-to-Use Primary Antibody CD23 (1B12),Leica,,0,2
+5055331304520,BOND Ready-to-Use Primary Antibody CD21 (2G9),Leica,,0,2
+5055331331199,BOND Ready-to-Use Primary Antibody CTLA-4 (CAL49),Leica,,0,2
+5055331304513,BOND Ready-to-Use Primary Antibody CD8 (4B11),Leica,,0,2
+5055331304506,BOND Ready-to-Use Primary Antibody CD56 (CD564),Leica,,0,2
+5055331325945,BOND Ready-to-Use Primary Antibody Oct-3/4 (N1NK),Leica,,0,2
+5055331304483,BOND Ready-to-Use Primary Antibody Bcl-6 (LN22),Leica,Central,5,2
+5055331326492,BOND Ready-to-Use Primary Antibody Alpha-Methylacyl-CoA Racemase (EPMU1),Leica,,0,2
+5055331304476,BOND Ready-to-Use Primary Antibody CD34 (QBEnd/10),Leica,,0,2
+5055331331229,BOND Ready-to-Use Primary Antibody PD-1 (CAL20),Leica,,0,2
+5055331304469,BOND Ready-to-Use Primary Antibody DOG-1 (K9),Leica,,0,2
+5055331304452,BOND Ready-to-Use Primary Antibody Myf-4 (Rhabdomyosarcoma Marker) (LO26),Leica,,0,2
+5055331318053,BOND Ready-to-Use Primary Antibody Ki67 (K2),Leica,,0,2
+5055331304445,BOND Ready-to-Use Primary Antibody Melan A (A103),Leica,,0,2
+5055331304438,BOND Ready-to-Use Primary Antibody CD1a (MTB1),Leica,,0,2
+5055331317902,BOND Ready-to-Use Primary Antibody Galectin-3 (9C4),Leica,,0,2
+5055331304421,BOND Ready-to-Use Primary Antibody CD22 (FPC1),Leica,,0,2
+5055331304414,BOND Ready-to-Use Primary Antibody CD31 (1A10),Leica,,0,2
+5055331304407,BOND Ready-to-Use Primary Antibody Muscle Specific Actin (HHF35),Leica,,0,2
+5055331331182,BOND Ready-to-Use Primary Antibody FOXP3,Leica,,0,2
+5055331304391,BOND Ready-to-Use Primary Antibody CD7 (LP15),Leica,,0,2
+5055331304384,BOND Ready-to-Use Primary Antibody CD10 (56C6),Leica,,0,2
+5055331304377,BOND Ready-to-Use Primary Antibody CD2 (11F11),Leica,,0,2
+5055331304360,BOND Ready-to-Use Primary Antibody CD68 (514H12),Leica,,0,2
+5055331318077,BOND Ready-to-Use Primary Antibody Immunoglobulin M (8H6),Leica,,0,2
+5055331304353,BOND Ready-to-Use Primary Antibody Protein Gene Product 9.5 (10A1),Leica,,0,2
+5055331304346,BOND Ready-to-Use Primary Antibody Granzyme B (11F1),Leica,,0,2
+5055331304339,BOND Ready-to-Use Primary Antibody Synaptophysin (27G12),Leica,,0,2
+5055331331205,BOND Ready-to-Use Primary Antibody LAG-3 (12H6),Leica,,0,2
+5055331326003,BOND Ready-to-Use Primary Antibody CD13 (38C12),Leica,,0,2
+5055331304322,BOND Ready-to-Use Primary Antibody CD25 (4C9),Leica,,0,2
+5055331304315,"BOND™ Ready-to-Use Primary Antibody
+Anaplastic Lymphoma Kinase (5A4)",Leica,,0,2
+5055331304308,BOND Ready-to-Use Primary Antibody CD61 (2f2),Leica,,0,2
+5055331304292,BOND Ready-to-Use Primary Antibody Progesterone Receptor (16),Leica,,0,2
+5055331304285,BOND Ready-to-Use Primary Antibody Tyrosinase (T311),Leica,,0,2
+5055331304261,BOND Ready-to-Use Primary Antibody Terminal Deoxynucleotidyl Transferase (SEN28),Leica,,0,2
+5055331304254,BOND Ready-to-Use Primary Antibody Calretinin (CAL6),Leica,,0,2
+5055331322517,BOND Ready-to-Use Primary Antibody CD34 (QBEnd/10),Leica,,10,2
+5055331324719,BOND Ready-to-Use Primary Antibody CD20 (L26),Leica,Central,10,2
+5055331331175,BOND Ready-to-Use Primary Antibody TIM-3 (EPR22241),Leica,,0,2
+5055331304230,BOND Ready-to-Use Primary Antibody Thyroid Transcription Factor-1 (SPT24),Leica,,0,2
+5055331304216,BOND Ready-to-Use Primary Antibody Neurofilament 200 kD (N52.1.7),Leica,,0,2
+5055331304209,BOND Ready-to-Use Primary Antibody Mesothelin (5B2),Leica,,0,2
+5055331325204,BOND Ready-to-Use Primary Antibody CD103 (EP206),Leica,,0,2
+5055331325211,BOND Ready-to-Use Primary Antibody CDX2 (EP25),Leica,,0,2
+5055331325259,BOND Ready-to-Use Primary Antibody Mammaglobin (EP249),Leica,,0,2
+5055331325228,BOND Ready-to-Use Primary Antibody p120 Catenin (EP66),Leica,,0,2
+5055331304193,BOND Ready-to-Use Primary Antibody E-Cadherin (36B5),Leica,,0,2
+5055331304186,BOND Ready-to-Use Primary Antibody Muramidase (Lysozyme) (Polyclonal),Leica,,0,2
+5055331304162,BOND Ready-To-Use Primary Antibody Calcitonin (Polyclonal),Leica,,0,2
+5055331321589,BOND Ready-to-Use Primary Antibody Ki67 (MM1),Leica,,0,2
+5055331325655,BOND Ready-to-Use Primary Antibody CD31 (JC70A),Leica,,0,2
+5055331304155,BOND Ready-to-Use Primary Antibody Calponin (Basic) (26A11),Leica,,0,2
+5055331304148,BOND Ready-to-Use Primary Antibody Fascin (IM20),Leica,,0,2
+5055331304131,BOND Ready-to-Use Primary Antibody CA19-9 (Sialyl Lewisa) (C241:5:1:4),Leica,,0,2
+5055331324801,BOND Ready-to-Use Primary Antibody CD4 (4B12),Leica,,0,2
+5055331304124,"BOND™ Ready-to-Use Primary Antibody
+Chromogranin A (5H7)",Leica,,0,2
+5055331304117,BOND Ready-to-Use Primary Antibody Prostate Specific Antigen (35H9),Leica,,0,2
+5055331304100,"BOND Ready-to-Use Primary Antibody
+Neuron Specific Enolase (22C9)",Leica,,0,2
+5055331320339,BOND Ready-to-Use Primary Antibody Progesterone Receptor (16),Leica,,0,2
+5055331304094,BOND Ready-to-Use Primary Antibody CD57 (NK-1),Leica,,0,2
+5055331331151,BOND Ready-to-Use Primary Antibody Muc-4 Glycoprotein (EPR9308),Leica,,0,2
+5055331304087,BOND Ready-to-Use Primary Antibody Factor XIIIa (E980.1),Leica,,0,2
+5055331304070,BOND Ready-to-Use Primary Antibody Cytokeratin 5 (XM26),Leica,,0,2
+5055331326829,BOND Ready-to-Use Primary Antibody CD15 (MMA),Leica,,0,2
+5055331327000,BOND Ready-to-Use Primary Antibody Inhibin Alpha (R1),Leica,,0,2
+5055331304056,"BOND Ready-to-Use Primary Antibody
+Myeloperoxidase (59A5)",Leica,,0,2
+5055331304049,BOND Ready-to-Use Primary Antibody Myosin Heavy Chain (smooth muscle) (S131),Leica,,0,2
+5055331325907,BOND Ready-to-Use Primary Antibody Chromogranin A (5H7),Leica,,0,2
+5055331304025,BOND Ready-to-Use Primary Antibody Oct-2 (Oct-207),Leica,,0,2
+5055331304001,BOND Ready-To-Use Primary Antibody CA125 (Ovarian Cancer Antigen)(Ov185:1),Leica,,0,2
+5055331303998,BOND Ready-to-Use Primary Antibody Pax-5 (1EW),Leica,,0,2
+5055331303981,BOND Ready-to-Use Primary Antibody CD3 (LN10),Leica,,0,2
+5055331303974,BOND Ready-to-Use Primary Antibody CD11c (5D11),Leica,,0,2
+5055331303967,BOND Ready-to-Use Primary Antibody CD33 (PWS44),Leica,,0,2
+5055331303950,BOND Ready-To-Use Primary Antibody B Cell Specific Octamer Binding Protein-1 (TG14),Leica,,0,2
+5055331303943,BOND Ready-to-Use Primary Antibody Wilms’ Tumor (WT49),Leica,,0,2
+5055331303936,BOND Ready-to-Use Primary Antibody Cytokeratin 8 (TS1),Leica,,0,2
+5055331319128,BOND Ready-to-Use Primary Antibody Lambda Light Chain (SHL53),Leica,,0,2
+5055331327901,BOND Ready-to-Use Primary Antibody c-erbB-2 Oncoprotein,Leica,,0,2
+5055331326805,BOND Ready-to-Use Primary Antibody CD79a (JCB117),Leica,,0,2
+5055331319111,BOND Ready-to-Use Primary Antibody Kappa Light Chain (CH15),Leica,,0,2
+5055331318060,"BOND™ Ready-to-Use Primary Antibody
+MLH1 (Mismatch Repair Protein) (ES05)",Leica,,0,2
+5055331303912,BOND Ready-to-Use Primary Antibody Insulin (2D11-H5),Leica,,0,2
+5055331322524,BOND Ready-to-Use Primary Antibody Melanoma Marker (HMB45),Leica,,0,2
+5055331321596,BOND Ready-to-Use Primary Antibody Vimentin (V9),Leica,,0,2
+5055331317858,BOND Ready-to-Use Primary Antibody Gastrin (Polyclonal),Leica,,0,2
+5055331303899,BOND Ready-to-Use Primary Antibody Human Follicle Stimulating Hormone (INN-hFSH-60),Leica,,0,2
+5055331303882,BOND Ready-to-Use Primary Antibody Human Growth Hormone (Polyclonal),Leica,,0,2
+5055331321572,BOND Ready-to-Use Primary Antibody Gross Cystic Disease Fluid Protein-15 (23A3),Leica,,0,2
+5055331303875,BOND Ready-to-Use Primary Antibody Myoglobin (MYO18),Leica,,0,2
+5055331303837,BOND Ready-to-Use Negative Control Negative (Rabbit),Leica,,0,2
+5055331303820,BOND Ready-to-Use Primary Antibody CD30 (JCM182),Leica,,0,2
+5055331303813,BOND Ready-to-Use Primary Antibody Cytokeratin 19 (b170),Leica,,0,2
+5055331328700,BOND Ready-to-Use Primary Antibody Anaplastic Lymphoma Kinase (5A4),Leica,,0,2
+5055331328908,BOND Ready-to-Use Primary Antibody Programmed Death Ligand 1 (73-10),Leica,,0,2
+5055331303806,BOND Ready-to-Use Primary Antibody CD19 (BT51E),Leica,,0,2
+5055331326812,BOND Ready-to-Use Primary Antibody Carcinoembryonic Antigen (CD66e) (COL-1),Leica,,0,2
+5055331326836,BOND Ready-to-Use Primary Antibody Immunoglobulin G (RWP49),Leica,,0,2
+5055331303783,BOND Ready-to-Use Primary Antibody CD20 (MJ1),Leica,,0,2
+5055331303776,BOND Ready-to-Use Primary Antibody Multi-Cytokeratin (AE1/AE3),Leica,,30,2
+5055331303752,BOND Ready-to-Use Primary Antibody Oct-3/4 (N1NK),Leica,,0,2
+5055331303745,"BOND Ready-to-Use Primary Antibody
+CD43 (MT1)",Leica,,0,2
+5055331303738,BOND Ready-to-Use Primary Antibody Cytokeratin 7 (RN7),Leica,,0,2
+5055331303721,BOND Ready-to-Use Primary Antibody Smooth Muscle Actin (alpha sm-1),Leica,,0,2
+5055331303714,BOND Ready-To-Use Primary Antibody Alpha Fetoprotein (C3),Leica,,0,2
+5055331328007,BOND Ready-to-Use Primary Antibody c-erbB-2 Oncoprotein,Leica,,0,2
+5055331328847,BOND Ready-to-Use Primary Antibody Mismatch Repair Protein (MLH1),Leica,,0,2
+5055331328830,BOND Ready-to-Use Primary Antibody MSH2 (Mismatch Repair Protein) (79H11),Leica,,0,2
+5055331328816,BOND Ready-To-Use Primary Antibody MSH6 (Mismatch Repair Protein) (EP49),Leica,,0,2
+5055331328823,BOND Ready-To-Use Primary Antibody PMS2 (Mismatch Repair Protein) (EP51),Leica,,0,2
+5055331303707,BOND Ready-to-Use Negative Control Negative (Mouse),Leica,,0,2
+5055331303578,BOND Ready-to-Use ISH EBER Probe,Leica,,0,2
+5055331303561,BOND Ready-to-Use ISH CMV Probe,Leica,,0,2
+5055331303554,BOND Ready-to-Use ISH Kappa Probe,Leica,,0,2
+5055331303547,BOND Ready-to-Use ISH Lambda Probe,Leica,,0,2
+5055331303530,BOND Ready-to-Use ISH DNA Positive Control Probe,Leica,,0,2
+5055331303523,BOND Ready-to-Use ISH DNA Negative Control,Leica,,0,2
+5055331303516,"BOND Ready-to-Use ISH HPV Probe (Subtypes 6, 11)",Leica,,0,2
+5055331303509,BOND Ready-to-Use ISH RNA Positive Control Probe,Leica,,0,2
+5055331303493,BOND Ready-to-Use ISH RNA Negative Control Probe,Leica,,0,2
+5055331303486,"BOND Ready-to-Use ISH HPV Probe (Subtypes 16, 18, 31, 33, 51)",Leica,,0,2
+5055331302137,Peroxidase Block,Leica,,0,2
+5055331302120,Protein Block,Leica,,0,2
+5055331302106,Streptavidin-HRP,Leica,,0,2
+5055331302090,Hematoxylin,Leica,,0,2
+5055331302083,Peroxidase Detection System,Leica,,0,2
+5055331302076,Manual Epitope Retrieval Solution pH6 10x Concentrate,Leica,,0,2
+5055331302052,Epitope Retrieval Solution pH8 10x Concentrate,Leica,,0,2
+5055331302045,Epitope Retrieval Solution pH9 10x Concentrate,Leica,,0,2
+5055331302007,IHC Diluent,Leica,,0,2
+5055331301994,Novolink Polymer Detection System,Leica,,0,2
+5055331301987,Novolink Polymer Detection System,Leica,,0,2
+5055331301970,Enzyme Proteinase K (IHC),Leica,,0,2
+5055331301925,Novolink Polymer,Leica,,0,2
+5055331301901,Novolink Max DAB (Polymer),Leica,,0,2
+5055331301895,Novolink Max Polymer,Leica,,0,2
+5055331301888,Novolink Max DAB (Polymer),Leica,,0,2
+5055331301871,Novolink Max Polymer Detection System,Leica,,0,2
+5055331301864,Novolink Min Polymer Detection System,Leica,,0,2
+5055331319340,Leica HER2 FISH Control Slides,Leica,,0,2
+5055331301291,BOND™ Oracle™ HER2 IHC System,Leica,,0,2
+5055331319005,Leica HER2 FISH System,Leica,,0,2
+undergoing optimisation,"Mo a Hu Neurofilament Prot, cl 2F11",Third Party,,0,4
+3PR00581,Alpha-1-Antitrypsin 2ML,Third Party,,0,4
+3PR01876,Amyloid P 100UL,Third Party,,0,4
+3PR00598,Androgen Receptor - 1ml,Third Party,,0,4
+3PR00168,"Anti Human CD15 [Carb-3], 1ml",Third Party,,0,4
+3PR02337,Anti-2SC antibody 20ug,Third Party,,0,4
+3PR00646,Anti-ATRX antibody produced in rabbit,Third Party,,0,4
+3PR02376,Anti-C Reactive Protein antibody / Y284,Third Party,,0,4
+3PR02437,Anti-C4d antibody [A24-T],Third Party,,0,4
+3PR00027,"Anti-Cathepsin K antibody [3F9], 50ug",Third Party,,0,4
+3PR02345,"Anti-CYP11B1 Antibody, clone 80-7",Third Party,,0,4
+3PR02346,CYP11B2 from Abcam ref ab168388,Third Party,,0,4
+3PR00006,"ANTI-GLUCAGON AB [EP3070], 100ul",Third Party,,0,4
+3PR00337,Anti-HHV8 antibody [LN35] 500ul,Third Party,,0,4
+3PR02444,Anti-IDH1 R132H (Hu) from Mouse (H09),Third Party,,0,4
+3PR00989,Anti-IDH1 0.5ml,Third Party,,0,4
+3PR00891,Anti- LEF1 antibody (EPR2029Y),Third Party,,0,4
+3PR00485,Anti-Parvovirus B19 (R92F6) 100ug,Third Party,,0,4
+3PR00109,"Anti-PAX8 antibody [PAX8R1], 100ug New one",Third Party,,0,4
+3PR02361,Anti-SDHB antibody 100ul,Third Party,,0,4
+3PR02365,Anti-SV40 T Antigen (Ab-2),Third Party,,0,4
+3PR00102,BAF47 BD BioSciences (612111),Third Party,,0,4
+3PR00628,BAP1,Third Party,,0,4
+3PR02339,BCL2 E17,Third Party,,0,4
+3PR00054,"Ber-EP4, concentrate 1ml",Third Party,,0,4
+3PR01275,"FLEX Mab, X-H Cald, cl h-CD, RTU, Link",Third Party,,0,4
+3PR00057,"CD68 [KP1], concentrate 1ml",Third Party,,0,4
+3PR00060,"CD68 [PG-M1], concentrate 1ml",Third Party,,0,4
+3PR01244,CEA (poly),Third Party,,0,4
+3PR00563,Coll IV,Third Party,,0,4
+3PR00059,"CYTOKERATIN [MNF116], concentrate 1ml",Third Party,,0,4
+3PR00546,Cytomegalovirus  1ml,Third Party,,0,4
+3PR00564,D2-40,Third Party,,0,4
+3PR01469,"EMA [E29], concentrate 0.2ml",Third Party,,0,4
+3PR00463,ER 1ml,Third Party,,10,4
+3PR02840,Fibrinogen 2ml - Agilent,Third Party,,0,4
+3PR02007,Fumarate Hydratase / J-13,Third Party,,0,4
+3PR02438,GATA-3 - Concentrate - 0.5 ml,Third Party,,0,4
+3PR01954,Purified Mouse Anti-Glutamine 150ug,Third Party,,0,4
+3PR00058,"GLYCOPHORIN A [JC159], concentrate 1ml",Third Party,,0,4
+3PR02349,Glypican 3 (1G12),Third Party,,0,4
+3PR02433,Herpes Simplex Virus Type 1,Third Party,,4,4
+3PR02350,Histone H3 (K27M),Third Party,,0,4
+3PR02351,Histone H3 (Trimethyl K27),Third Party,,0,4
+3PR02447,HSP70 - abcam ab 2787,Third Party,,0,4
+3PR02465,Human Amyloid Conc - firefly,Third Party,,0,4
+3PR02356,IgG4,Third Party,,0,4
+3PR01243,INSM1,Third Party,,0,4
+3PR00931,Kappa,Third Party,,0,4
+3PR02353,KCNJ5 100ul,Third Party,,0,4
+3PR00932,"Lambda Light Chains, Polyclonal, 2ml",Third Party,,0,4
+3PR01939,LH (Luteinizing Hormone) (SP103),Third Party,,0,4
+3PR02867 - new to contract,"LH, (BSB-53) - 7ml - Stratech",Third Party,,0,4
+3PR02877,LFABP Abcam ab 222517 100ul,Third Party,,0,4
+3PR02354,LMO2 (SP51),Third Party,,0,4
+3PR00063,"Mesothelial Cell [HBME-1], conc 1ml",Third Party,Central,10,4
+3PR01588,"Mo a Hu Cytoker 5/6, cl D5/16 B4",Third Party,,0,4
+3PR02445,MOC-31 - Concentrate - 1.0 ml,Third Party,,0,4
+3PR02466,"Mono Mo a Hu Prostein, cl 10E3 - 0.2ml",Third Party,,0,4
+3PR00803,"Mouse anti Canine, Human, Rat Adipophili",Third Party,,0,4
+3PR02357,MTAP (2G4) ab Nova  H00004507-M01 -fisher scientific,Third Party,,0,4
+3PR02358,"MUC4 Mouse anti-Human, Mouse, Rat,",Third Party,,0,4
+3PR02359,MyoD1 (EP212),Third Party,,0,4
+3PR01038,Neu N -Neuronal Marker clone 1B7 100ug- abcam ab104224,Third Party,,0,4
+3PR00660,NKX3.1,Third Party,,0,4
+3PR01864,PAX 8 (0ld) Cell marque 363M-16,Third Party,,0,4
+3PR01035,PD1 clone NAT105 100ug,Third Party,,0,4
+3PR01751,PLA2R1 (polyclonal) 100ul,Third Party,,0,4
+3PR02341,Polyclonal Rabbit Anti-Human C3c Complem,Third Party,,0,4
+3PR02343,Polyclonal Rabbit Anti-Human IgD,Third Party,,0,4
+3PR01697,Prolactin Rabbit EP193 0.5ml,Third Party,,0,4
+3PR01214,PTEN,Roche,Central,10,4
+3PR00990,PHOX2B (EPR14423) 100ul,Third Party,,0,4
+3PR01260,Rb a Helicobacter Pylori,Third Party,,0,4
+3PR01258,Rb a Hu Growth Hormone,Third Party,,0,4
+3PR01252,Rb a Hu Myeloperoxidase,Third Party,,10,4
+3PR02423,Recombinant Anti-c-Myc antibody [Y69],Third Party,,0,4
+3PR02362,Recombinant Anti-Steroidogenic Factor 1,Third Party,,0,4
+3PR02442,RNAScope ISH Probe dapB ( Negative Contr,Third Party,,0,4
+3PR02440,RNAScope ISH Probe High Risk HPV,Third Party,,0,4
+3PR00975,RNAscope® 2.5 LS Positive Control Probe_,Third Party,,0,4
+3PR01843,RNAscope® 2.5 LS Probe -HPV-HR18,Third Party,,0,4
+3PR02439,SALL4 - Concentrate - 1.0 ml,Third Party,,0,4
+3PR02814,Serum Amyloid A (EP335),Third Party,,0,4
+3PR00904,STAT6 (YE361) abcam,Third Party,,0,4
+3PR02364,Stathmin1 (SP49),Third Party,,0,4
+3PR02206,TSH - Vitro,Third Party,,0,4
+3PR02499,Thyroglobulin,Third Party,,0,4
+NCL-L-CAIX,NCL-L-CAIX,Third Party,,0,4
+NCL-L-CD123,NCL-L-CD123,Third Party,,0,4
+NCL-L-Langerin,NCL-L-Langerin,Third Party,,0,4
+NCL-L-MITF,NCL-L-MITF,Third Party,,0,4

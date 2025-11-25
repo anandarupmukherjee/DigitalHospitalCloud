@@ -5,6 +5,8 @@ set -euo pipefail
 
 DATA_OUTPUT_PID=""
 SERVER_PID=""
+PORT=${PORT:-8001}
+ENABLE_DATA_OUTPUT_LISTENER=${ENABLE_DATA_OUTPUT_LISTENER:-0}
 
 cleanup() {
   echo "Shutting down services..."
@@ -50,22 +52,22 @@ else:
 PY
 
 echo "4. Running collectstatic with simple storage..."
-export DJANGO_STATICFILES_STORAGE=django.contrib.staticfiles.storage.StaticFilesStorage
-# python manage.py collectstatic --noinput --verbosity 2
+python manage.py collectstatic --noinput --verbosity 2
 
 echo "5. Checking staticfiles directory after collectstatic..."
 ls -la /code/staticfiles
 
-echo "6. Switching to ManifestStaticFilesStorage..."
-export DJANGO_STATICFILES_STORAGE=django.contrib.staticfiles.storage.ManifestStaticFilesStorage
-
-echo "7. Starting data_output listener..."
-python manage.py data_output_listener &
-DATA_OUTPUT_PID=$!
-echo "data_output listener running as PID ${DATA_OUTPUT_PID}"
+if [[ "${ENABLE_DATA_OUTPUT_LISTENER}" == "1" ]]; then
+  echo "7. Starting data_output listener..."
+  python manage.py data_output_listener &
+  DATA_OUTPUT_PID=$!
+  echo "data_output listener running as PID ${DATA_OUTPUT_PID}"
+else
+  echo "7. Skipping data_output listener (ENABLE_DATA_OUTPUT_LISTENER=${ENABLE_DATA_OUTPUT_LISTENER})"
+fi
 
 echo "8. Starting Django development server..."
-python manage.py runserver 0.0.0.0:8000 &
+python manage.py runserver 0.0.0.0:${PORT} &
 SERVER_PID=$!
 
 wait "${SERVER_PID}"

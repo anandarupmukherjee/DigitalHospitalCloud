@@ -21,6 +21,7 @@ urlpatterns = [
     # Create Withdrawal / Product List
     # path('create_withdrawal/', views.create_withdrawal, name='create_withdrawal'),
     path('product_list/', views.product_list, name='product_list'),
+    path('product-supplier-mapping/', views.product_supplier_mapping, name='product_supplier_mapping'),
     # path('get-product-by-id/', views.get_product_by_id, name='get_product_by_id'),
 
 
@@ -49,6 +50,7 @@ urlpatterns = [
     path('edit_user/<int:user_id>/', views.edit_user, name='edit_user'),
     path('delete_user/<int:user_id>/', views.delete_user, name='delete_user'),
     path('manage_suppliers/', views.manage_suppliers, name='manage_suppliers'),
+    path('import/', views.import_inventory, name='import_inventory'),
     path('suppliers/<int:supplier_id>/products/', views.supplier_products, name='supplier_products'),
     path('manage_locations/', views.manage_locations, name='manage_locations'),
     path('locations/<int:location_id>/products/', views.location_products, name='location_products'),

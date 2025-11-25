@@ -29,12 +29,12 @@ MODULE_FLAGS = {name: meta["enabled"] for name, meta in MODULE_DEFINITIONS.items
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-u7s2g-dew%l8xwznhciioi)aq$3&77mr4h1rf)@y8ys&&q$*@r'
-# SECRET_KEY = os.getenv("SECRET_KEY")
+# SECRET_KEY = 'django-insecure-u7s2g-dew%l8xwznhciioi)aq$3&77mr4h1rf)@y8ys&&q$*@r'
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
@@ -65,13 +65,14 @@ INSTALLED_APPS = BASE_APPS + enabled_apps() + [
 MIDDLEWARE = [
     'inventory.middleware.module_toggle.ModuleToggleMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # 'whitenoise.middleware.WhiteNoiseMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'stock_control.urls'
@@ -157,9 +158,17 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),  # ✅ Now correctly pointing to /static
 ]
 
-# Where collectstatic will put all collected static files
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
+FORCE_SCRIPT_NAME = os.getenv("FORCE_SCRIPT_NAME")
+if FORCE_SCRIPT_NAME:
+    FORCE_SCRIPT_NAME = FORCE_SCRIPT_NAME.rstrip('/') or '/'
+    USE_X_FORWARDED_HOST = True
+    USE_X_FORWARDED_PORT = True
+    STATIC_URL = f"{FORCE_SCRIPT_NAME.rstrip('/')}{STATIC_URL}"
+    LOGIN_URL = f"{FORCE_SCRIPT_NAME.rstrip('/')}/accounts/login/"
+else:
+    LOGIN_URL = '/accounts/login/'
 
 # Exclude admin static files from collectstatic
 STATICFILES_FINDERS = [
@@ -167,7 +176,7 @@ STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 ]
 
-STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

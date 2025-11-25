@@ -8,4 +8,4 @@ modules:
   analytics:
     enabled: true
   location_tracking:
-    enabled: true
+    enabled: false

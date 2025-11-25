@@ -1,13 +1,19 @@
 # views.py
 from collections import defaultdict
+import csv
+import io
+from datetime import timedelta
 
+from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.views import PasswordChangeView
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.timezone import now
 from django.db import transaction
 from django.http import Http404
+from django.urls import reverse_lazy
 
 from inventory.access_control import group_required
 from inventory.roles import (
@@ -27,7 +33,16 @@ from services.data_collection_1.stock_admin import (
 from services.data_collection_2.create_withdrawal import (
     create_withdrawal as _create_withdrawal,
 )
-from services.data_storage.models import Product, ProductItem, PurchaseOrder, Supplier, Location
+from services.data_storage.models import (
+    Product,
+    ProductItem,
+    PurchaseOrder,
+    Supplier,
+    Location,
+    StockRegistration,
+    Withdrawal,
+    PurchaseOrderCompletionLog,
+)
 try:
     from solutions.quality_control.models import QualityCheck
 except Exception:
@@ -45,6 +60,18 @@ from .forms import (
     LocationForm,
 )
 
+
+class InventoryUploadForm(forms.Form):
+    file = forms.FileField(help_text="Upload CSV with columns: code, name, threshold, supplier, lead_time_days, location (optional)")
+
+
+class ResetInventoryForm(forms.Form):
+    RESET_CHOICES = [
+        ("clear_lots", "Clear lots (ProductItem records)"),
+        ("clear_stock", "Clear stock records (registrations/withdrawals, zero out lots)"),
+        ("clear_all", "Clear all inventory records"),
+    ]
+    action = forms.ChoiceField(widget=forms.RadioSelect, choices=RESET_CHOICES)
 
 
 
@@ -314,6 +341,44 @@ def product_list(request):
 
 @login_required
 @user_passes_test(is_admin, login_url='inventory:dashboard')
+def product_supplier_mapping(request):
+    products = Product.objects.select_related("supplier_ref").order_by("product_code")
+    suppliers = Supplier.objects.order_by("name")
+
+    if request.method == "POST":
+        product_id = request.POST.get("product_id")
+        supplier_ref_id = request.POST.get("supplier_ref_id") or None
+        if not product_id:
+            messages.error(request, "Missing product identifier.")
+            return redirect('inventory:product_supplier_mapping')
+        product = get_object_or_404(Product, pk=product_id)
+
+        supplier_instance = None
+        if supplier_ref_id:
+            supplier_instance = get_object_or_404(Supplier, pk=supplier_ref_id)
+
+        # Update supplier reference and legacy supplier code for consistency
+        product.supplier_ref = supplier_instance
+        if supplier_instance:
+            product.supplier = "LEICA" if supplier_instance.name.lower() == "leica" else "THIRD_PARTY"
+        else:
+            product.supplier = "THIRD_PARTY"
+        product.save()
+        messages.success(request, f"Updated supplier for {product.name}.")
+        return redirect('inventory:product_supplier_mapping')
+
+    return render(
+        request,
+        "inventory/product_supplier_mapping.html",
+        {
+            "products": products,
+            "suppliers": suppliers,
+        },
+    )
+
+
+@login_required
+@user_passes_test(is_admin, login_url='inventory:dashboard')
 def manage_suppliers(request):
     # Ensure default suppliers exist so they appear in the table and can be mapped.
     with transaction.atomic():
@@ -346,6 +411,105 @@ def manage_suppliers(request):
             "form": form,
             "suppliers": suppliers,
             "editing": supplier_instance,
+        },
+    )
+
+
+@login_required
+@user_passes_test(is_admin, login_url='inventory:dashboard')
+def import_inventory(request):
+    form = InventoryUploadForm()
+    reset_form = ResetInventoryForm(initial={"action": "clear_lots"})
+    summary = None
+    errors = []
+
+    if request.method == "POST":
+        if "reset_action" in request.POST:
+            reset_form = ResetInventoryForm(request.POST)
+            if reset_form.is_valid():
+                action = reset_form.cleaned_data["action"]
+                with transaction.atomic():
+                    if action in ("clear_stock", "clear_all"):
+                        Withdrawal.objects.all().delete()
+                        StockRegistration.objects.all().delete()
+                        ProductItem.objects.update(current_stock=0, accumulated_partial=0)
+                        PurchaseOrderCompletionLog.objects.all().delete()
+                        PurchaseOrder.objects.all().delete()
+                    if action in ("clear_lots", "clear_all"):
+                        ProductItem.objects.all().delete()
+                    if action == "clear_all":
+                        Product.objects.all().delete()
+                messages.success(request, f"Inventory reset performed: {dict(reset_form.fields['action'].choices).get(action)}")
+        else:
+            form = InventoryUploadForm(request.POST, request.FILES)
+            if form.is_valid():
+                raw = form.cleaned_data["file"].read().decode("utf-8")
+                reader = csv.DictReader(io.StringIO(raw))
+                created, updated = 0, 0
+
+                def parse_int(value, default=0):
+                    try:
+                        return int(value)
+                    except (TypeError, ValueError):
+                        return default
+
+                with transaction.atomic():
+                    for idx, row in enumerate(reader, start=1):
+                        code = (row.get("code") or row.get("product_code") or "").strip()
+                        name = (row.get("name") or row.get("product") or "").strip()
+                        if not code or not name:
+                            errors.append(f"Row {idx}: missing code or name")
+                            continue
+
+                        threshold = parse_int(row.get("threshold"))
+                        supplier_name = (row.get("supplier") or row.get("supplier_name") or "").strip()
+                        supplier_choice = row.get("supplier_code", "").strip().upper() or "LEICA"
+                        if supplier_choice not in dict(Product.SUPPLIER_CHOICES):
+                            supplier_choice = "THIRD_PARTY" if supplier_name else "LEICA"
+
+                        supplier_ref = None
+                        if supplier_name:
+                            supplier_ref, _ = Supplier.objects.get_or_create(name=supplier_name)
+
+                        location_name = (row.get("location") or "").strip()
+                        location = None
+                        if location_name:
+                            location, _ = Location.objects.get_or_create(name=location_name)
+
+                        lead_time_days = parse_int(row.get("lead_time_days") or row.get("lead_time"))
+                        lead_time = timedelta(days=lead_time_days or 0)
+
+                        defaults = {
+                            "name": name,
+                            "threshold": threshold,
+                            "supplier": supplier_choice,
+                            "supplier_ref": supplier_ref,
+                            "location": location,
+                            "lead_time": lead_time,
+                        }
+                        obj, created_flag = Product.objects.update_or_create(
+                            product_code=code,
+                            defaults=defaults,
+                        )
+                        if created_flag:
+                            created += 1
+                        else:
+                            updated += 1
+
+                summary = {"created": created, "updated": updated, "errors": len(errors)}
+                if errors:
+                    messages.warning(request, f"Imported with {len(errors)} issues. Created {created}, updated {updated}.")
+                else:
+                    messages.success(request, f"Imported {created} new, updated {updated}.")
+
+    return render(
+        request,
+        "inventory/import_inventory.html",
+        {
+            "form": form,
+            "reset_form": reset_form,
+            "errors": errors,
+            "summary": summary,
         },
     )
 
@@ -530,3 +694,5 @@ def manage_product_codes(request):
 @login_required
 def help_page(request):
     return render(request, "inventory/help.html")
+class PasswordChangeRedirectView(PasswordChangeView):
+    success_url = reverse_lazy("login")

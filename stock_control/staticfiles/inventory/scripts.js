@@ -1,3 +1,21 @@
+function ensureBuildAppUrl() {
+    if (window.__buildAppUrl) {
+        return window.__buildAppUrl;
+    }
+    const helper = function (path) {
+        const dataset = document.body ? document.body.dataset || {} : {};
+        const base = (window.__APP_BASE_PATH ||
+            (window.__APP_BASE_PATH = (dataset.rootUrl || "").replace(/\/+$/, ""))) || "";
+        if (path[0] !== "/") {
+            path = "/" + path;
+        }
+        return base ? `${base}${path}` : path;
+    };
+    window.__buildAppUrl = helper;
+    return helper;
+}
+const buildAppUrl = ensureBuildAppUrl();
+
 document.addEventListener("DOMContentLoaded", function () {
     console.log("📦 DOM fully loaded");
 
@@ -43,7 +61,9 @@ document.addEventListener("DOMContentLoaded", function () {
     // --- 3) Barcode Auto-Fill ---
     async function fetchProductDetailsByBarcode(barcode) {
         try {
-            const response = await fetch(`/data/get-product-by-barcode/?barcode=${barcode}`);
+            const response = await fetch(
+                buildAppUrl(`/data/get-product-by-barcode/?barcode=${encodeURIComponent(barcode)}`)
+            );
             if (!response.ok) throw new Error("Product not found");
             const data = await response.json();
 
@@ -79,7 +99,9 @@ document.addEventListener("DOMContentLoaded", function () {
             const productId = productDropdown.value;
             if (!productId) return alert("Please select a product first.");
             try {
-                const response = await fetch(`/get-product-by-id/?id=${productId}`);
+                const response = await fetch(
+                    buildAppUrl(`/data/get-product-by-id/?id=${encodeURIComponent(productId)}`)
+                );
                 if (!response.ok) throw new Error("Product not found");
                 const data = await response.json();
 
