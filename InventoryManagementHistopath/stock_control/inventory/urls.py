@@ -21,6 +21,7 @@ urlpatterns = [
     # Create Withdrawal / Product List
     # path('create_withdrawal/', views.create_withdrawal, name='create_withdrawal'),
     path('product_list/', views.product_list, name='product_list'),
+    path('product-supplier-mapping/', views.product_supplier_mapping, name='product_supplier_mapping'),
     # path('get-product-by-id/', views.get_product_by_id, name='get_product_by_id'),
 
 

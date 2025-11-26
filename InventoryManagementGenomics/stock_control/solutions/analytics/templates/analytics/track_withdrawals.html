@@ -35,6 +35,9 @@
             <tr>
               <th>Timestamp</th>
               <th>Product</th>
+              {% if location_tracking_enabled %}
+              <th>Location</th>
+              {% endif %}
               <th>Full Items Withdrawn</th>
               <th>Partial Parts Withdrawn</th>
               <th>Withdrawal Type</th>
@@ -47,6 +50,9 @@
             <tr>
               <td>{{ withdrawal.timestamp }}</td>
               <td>{{ withdrawal.product_name|default:"N/A" }}</td>
+              {% if location_tracking_enabled %}
+              <td>{{ withdrawal.location_name|default:"N/A" }}</td>
+              {% endif %}
               <td>{{ withdrawal.full_items }}</td>
               <td>{{ withdrawal.partial_items }}</td>
               <td>{{ withdrawal.withdrawal_type }}</td>
@@ -55,7 +61,7 @@
             </tr>
             {% empty %}
             <tr>
-              <td colspan="7">No withdrawals recorded.</td>
+              <td colspan="{% if location_tracking_enabled %}8{% else %}7{% endif %}">No withdrawals recorded.</td>
             </tr>
             {% endfor %}
           </tbody>

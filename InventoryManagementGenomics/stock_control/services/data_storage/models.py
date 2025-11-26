@@ -114,6 +114,13 @@ class Withdrawal(models.Model):
     )
     timestamp = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    location = models.ForeignKey(
+        Location,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="withdrawals",
+    )
     barcode = models.CharField(max_length=128, blank=True, null=True)
 
     parts_withdrawn = models.PositiveIntegerField(
@@ -151,6 +158,13 @@ class StockRegistration(models.Model):
     quantity = models.PositiveIntegerField(default=1)
     timestamp = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    location = models.ForeignKey(
+        Location,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stock_registrations",
+    )
     barcode = models.CharField(max_length=128, blank=True, null=True)
 
     product_code = models.CharField(max_length=50, default="N/A")

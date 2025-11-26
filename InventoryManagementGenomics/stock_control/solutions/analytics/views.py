@@ -1,24 +1,32 @@
 from datetime import timedelta
+from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render
 from django.utils.timezone import now
+from django.db.models import Sum, F, Q
 
 from inventory.access_control import group_required
 from inventory.roles import (
     ROLE_INVENTORY_MANAGER,
+    ROLE_TEAM_MANAGER,
     ROLE_STAFF,
     ROLE_SUPPLIER,
     user_has_role,
     user_is_inventory_manager,
+    user_is_team_manager,
+)
+from inventory.location_utils import (
+    get_user_location_choices,
+    get_user_location_ids,
+    get_product_ids_for_locations,
 )
 from services.analysis.analysis import (
     inventory_analysis_forecasting as _inventory_analysis_forecasting,
 )
 from services.data_storage.models import Product, ProductItem, Withdrawal, Location
 from services.reporting.reporting import download_report as _download_report
-from django.db.models import Sum, F
-from decimal import Decimal
+from stock_control.module_loader import module_flags as get_module_flags
 
 EXPIRED_RANGE_OPTIONS = {
     "now": {"label": "Expired", "days": 0},
@@ -44,30 +52,108 @@ def download_report(request):
 
 
 @login_required
-@group_required([ROLE_INVENTORY_MANAGER, ROLE_STAFF, "Leica Staff"])
+@group_required([ROLE_INVENTORY_MANAGER, ROLE_TEAM_MANAGER, ROLE_STAFF, "Leica Staff"])
 def track_withdrawals(request):
+    location_tracking_enabled = get_module_flags().get("location_tracking", False)
+    select_related_fields = ["product_item", "user"]
+    if location_tracking_enabled:
+        select_related_fields.extend(
+            ["location", "product_item__product", "product_item__product__location"]
+        )
     withdrawals = (
-        Withdrawal.objects.select_related("product_item", "user")
+        Withdrawal.objects.select_related(*select_related_fields)
         .order_by("-timestamp")
     )
     staff_only = user_has_role(request.user, ROLE_STAFF) and not user_is_inventory_manager(request.user)
     if staff_only:
         withdrawals = withdrawals.filter(user=request.user)
+    team_manager_scope = (
+        location_tracking_enabled
+        and user_has_role(request.user, ROLE_TEAM_MANAGER)
+        and not user_is_inventory_manager(request.user)
+    )
+    allowed_location_ids = get_user_location_ids(request.user) if team_manager_scope else set()
+    if team_manager_scope:
+        if allowed_location_ids:
+            withdrawals = withdrawals.filter(
+                Q(location_id__in=allowed_location_ids)
+                | Q(location_id__isnull=True, product_item__product__location_id__in=allowed_location_ids)
+            )
+        else:
+            withdrawals = withdrawals.none()
+    withdrawals = list(withdrawals)
+
+    user_locations_map = {}
+    if location_tracking_enabled and withdrawals:
+        try:
+            from solutions.location_tracking.models import UserLocation
+
+            user_ids = {w.user_id for w in withdrawals if w.user_id}
+            if user_ids:
+                assignments = (
+                    UserLocation.objects.select_related("location")
+                    .filter(user_id__in=user_ids)
+                )
+                for assignment in assignments:
+                    user_locations_map.setdefault(assignment.user_id, []).append(
+                        assignment.location.name
+                    )
+        except Exception:
+            user_locations_map = {}
     for withdrawal in withdrawals:
         withdrawal.full_items = withdrawal.get_full_items_withdrawn()
         withdrawal.partial_items = withdrawal.get_partial_items_withdrawn()
+        if location_tracking_enabled:
+            location_name = None
+            if withdrawal.location:
+                location_name = withdrawal.location.name
+            if not location_name:
+                product_item = withdrawal.product_item
+                product = getattr(product_item, "product", None) if product_item else None
+                product_location = getattr(product, "location", None) if product else None
+                if product_location:
+                    location_name = product_location.name
+            if not location_name and withdrawal.user_id:
+                assigned = user_locations_map.get(withdrawal.user_id)
+                if assigned:
+                    location_name = ", ".join(sorted(set(assigned)))
+            withdrawal.location_name = location_name
     return render(
         request,
         "analytics/track_withdrawals.html",
-        {"withdrawals": withdrawals, "staff_only": staff_only},
+        {
+            "withdrawals": withdrawals,
+            "staff_only": staff_only,
+            "team_manager_scope": team_manager_scope,
+            "location_tracking_enabled": location_tracking_enabled,
+        },
     )
 
 
 @login_required
-@group_required([ROLE_INVENTORY_MANAGER, ROLE_SUPPLIER])
+@group_required([ROLE_INVENTORY_MANAGER, ROLE_TEAM_MANAGER, ROLE_SUPPLIER])
 def track_low_lots(request):
+    location_tracking_enabled = get_module_flags().get("location_tracking", False)
+    team_manager_scope = (
+        location_tracking_enabled
+        and user_has_role(request.user, ROLE_TEAM_MANAGER)
+        and not user_is_inventory_manager(request.user)
+    )
+    allowed_location_ids = get_user_location_ids(request.user) if team_manager_scope else set()
+    allowed_product_ids = (
+        get_product_ids_for_locations(allowed_location_ids) if allowed_location_ids else set()
+    )
+    location_names = [loc.name for loc in get_user_location_choices(request.user)] if team_manager_scope else []
+
+    product_qs = Product.objects.prefetch_related("items").all()
+    if team_manager_scope:
+        if allowed_product_ids:
+            product_qs = product_qs.filter(id__in=allowed_product_ids)
+        else:
+            product_qs = Product.objects.none()
+
     low_lots = []
-    for product in Product.objects.prefetch_related("items").all():
+    for product in product_qs:
         total_stock = sum(item.current_stock for item in product.items.all())
         if total_stock < product.threshold:
             next_expiry = product.items.order_by("expiry_date").first()
@@ -84,12 +170,17 @@ def track_low_lots(request):
     return render(
         request,
         "analytics/track_low_lots.html",
-        {"low_lots": low_lots},
+        {
+            "low_lots": low_lots,
+            "team_manager_scope": team_manager_scope,
+            "location_tracking_enabled": location_tracking_enabled,
+            "user_locations": location_names,
+        },
     )
 
 
 @login_required
-@group_required([ROLE_INVENTORY_MANAGER, ROLE_SUPPLIER])
+@group_required([ROLE_INVENTORY_MANAGER, ROLE_TEAM_MANAGER, ROLE_SUPPLIER])
 def track_expired_lots(request):
     today = now().date()
     range_key = request.GET.get("range", "now")
@@ -107,6 +198,23 @@ def track_expired_lots(request):
             expiry_date__range=(today, upper)
         )
 
+    location_tracking_enabled = get_module_flags().get("location_tracking", False)
+    team_manager_scope = (
+        location_tracking_enabled
+        and user_has_role(request.user, ROLE_TEAM_MANAGER)
+        and not user_is_inventory_manager(request.user)
+    )
+    allowed_location_ids = get_user_location_ids(request.user) if team_manager_scope else set()
+    allowed_product_ids = (
+        get_product_ids_for_locations(allowed_location_ids) if allowed_location_ids else set()
+    )
+    location_names = [loc.name for loc in get_user_location_choices(request.user)] if team_manager_scope else []
+    if team_manager_scope:
+        if allowed_product_ids:
+            expired_items = expired_items.filter(product_id__in=allowed_product_ids)
+        else:
+            expired_items = expired_items.none()
+
     expired_items = expired_items.order_by("expiry_date")
     return render(
         request,
@@ -119,6 +227,9 @@ def track_expired_lots(request):
                 for key, value in EXPIRED_RANGE_OPTIONS.items()
             ],
             "selected_range": range_key,
+            "team_manager_scope": team_manager_scope,
+            "location_tracking_enabled": location_tracking_enabled,
+            "user_locations": location_names,
         },
     )
 

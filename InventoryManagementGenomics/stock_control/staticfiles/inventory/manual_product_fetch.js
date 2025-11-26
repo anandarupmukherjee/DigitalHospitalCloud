@@ -1,3 +1,22 @@
+function ensureBuildAppUrl() {
+    if (window.__buildAppUrl) {
+        return window.__buildAppUrl;
+    }
+    const helper = function (path) {
+        const dataset = document.body ? document.body.dataset || {} : {};
+        const base = (window.__APP_BASE_PATH ||
+            (window.__APP_BASE_PATH = (dataset.rootUrl || "").replace(/\/+$/, ""))) || "";
+        if (path[0] !== "/") {
+            path = "/" + path;
+        }
+        return base ? `${base}${path}` : path;
+    };
+    window.__buildAppUrl = helper;
+    return helper;
+}
+
+const buildAppUrl = ensureBuildAppUrl();
+
 document.addEventListener("DOMContentLoaded", function () {
     const productDropdown = document.getElementById("id_product_dropdown");
 
@@ -7,7 +26,9 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!selectedId) return;
 
             try {
-                const response = await fetch(`/data/get-product-by-id/?id=${selectedId}`);
+                const response = await fetch(
+                    buildAppUrl(`/data/get-product-by-id/?id=${encodeURIComponent(selectedId)}`)
+                );
                 if (!response.ok) throw new Error("Product not found");
 
                 const data = await response.json();

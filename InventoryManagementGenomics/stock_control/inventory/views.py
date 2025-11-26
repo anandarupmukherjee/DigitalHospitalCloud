@@ -8,16 +8,19 @@ from io import BytesIO
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.views import PasswordChangeView
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.timezone import now
 from django.db import transaction
 from django.http import Http404
+from django.urls import reverse_lazy
 import pandas as pd
 
 from inventory.access_control import group_required
 from inventory.roles import (
     ROLE_INVENTORY_MANAGER,
+    ROLE_TEAM_MANAGER,
     ROLE_STAFF,
     user_is_inventory_manager,
 )
@@ -83,7 +86,7 @@ def is_admin(user):
 def manage_inventory(request):
     return render(request, "manage_inventory.html")
 
-@group_required([ROLE_INVENTORY_MANAGER, ROLE_STAFF, LEGACY_STAFF_ROLE])
+@group_required([ROLE_INVENTORY_MANAGER, ROLE_TEAM_MANAGER, ROLE_STAFF, LEGACY_STAFF_ROLE])
 def view_dashboard(request):
     return render(request, "dashboard.html")
 
@@ -137,7 +140,7 @@ def delete_user(request, user_id):
     return render(request, 'registration/delete_user.html', {'user_obj': user})
 
 @login_required
-@group_required([ROLE_INVENTORY_MANAGER, ROLE_STAFF, LEGACY_STAFF_ROLE])
+@group_required([ROLE_INVENTORY_MANAGER, ROLE_TEAM_MANAGER, ROLE_STAFF, LEGACY_STAFF_ROLE])
 def inventory_dashboard(request):
     context = get_dashboard_data()
 
@@ -210,7 +213,7 @@ def delete_lot(request, item_id):
 
 
 @login_required
-@group_required([ROLE_INVENTORY_MANAGER, ROLE_STAFF, LEGACY_STAFF_ROLE])
+@group_required([ROLE_INVENTORY_MANAGER, ROLE_TEAM_MANAGER, ROLE_STAFF, LEGACY_STAFF_ROLE])
 def create_withdrawal(request):
     return _create_withdrawal(request)
 
@@ -233,7 +236,7 @@ if QualityCheck:
 
 
 @login_required
-@group_required([ROLE_INVENTORY_MANAGER, ROLE_STAFF, LEGACY_STAFF_ROLE])
+@group_required([ROLE_INVENTORY_MANAGER, ROLE_TEAM_MANAGER, ROLE_STAFF, LEGACY_STAFF_ROLE])
 def product_list(request):
     filter_key = request.GET.get("filter", "all")
     valid_filters = {key for key, _ in FILTER_OPTIONS}
@@ -336,6 +339,43 @@ def product_list(request):
         'location_tracking_enabled': location_tracking_enabled,
         'barcode_value': barcode_value,
     })
+
+
+@login_required
+@user_passes_test(is_admin, login_url='inventory:dashboard')
+def product_supplier_mapping(request):
+    products = Product.objects.select_related("supplier_ref").order_by("product_code")
+    suppliers = Supplier.objects.order_by("name")
+
+    if request.method == "POST":
+        product_id = request.POST.get("product_id")
+        supplier_ref_id = request.POST.get("supplier_ref_id") or None
+        if not product_id:
+            messages.error(request, "Missing product identifier.")
+            return redirect('inventory:product_supplier_mapping')
+        product = get_object_or_404(Product, pk=product_id)
+        supplier_instance = None
+        if supplier_ref_id:
+            supplier_instance = get_object_or_404(Supplier, pk=supplier_ref_id)
+
+        product.supplier_ref = supplier_instance
+        if supplier_instance:
+            normalized = supplier_instance.name.lower()
+            product.supplier = "LEICA" if normalized == "leica" else "THIRD_PARTY"
+        else:
+            product.supplier = "THIRD_PARTY"
+        product.save()
+        messages.success(request, f"Updated supplier for {product.name}.")
+        return redirect('inventory:product_supplier_mapping')
+
+    return render(
+        request,
+        "inventory/product_supplier_mapping.html",
+        {
+            "products": products,
+            "suppliers": suppliers,
+        },
+    )
 
 
 @login_required
@@ -695,3 +735,5 @@ def manage_product_codes(request):
 @login_required
 def help_page(request):
     return render(request, "inventory/help.html")
+class PasswordChangeRedirectView(PasswordChangeView):
+    success_url = reverse_lazy("login")

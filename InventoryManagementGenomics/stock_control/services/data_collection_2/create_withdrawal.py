@@ -1,10 +1,16 @@
-from django.shortcuts import render, redirect
-from django.db.models import F
 import datetime
 
-from services.data_storage.models import Product, ProductItem, Withdrawal
+from django.db.models import F
+from django.shortcuts import redirect, render
+
 from inventory.forms import WithdrawalForm
+from inventory.location_utils import (
+    ACTIVE_USER_LOCATION_SESSION_KEY,
+    build_user_location_state,
+    coerce_location_id,
+)
 from services.data_collection.data_collection import parse_barcode_data
+from services.data_storage.models import Product, ProductItem, Withdrawal
 
 
 def _candidate_codes(*values):
@@ -21,9 +27,29 @@ def _candidate_codes(*values):
 
 
 def create_withdrawal(request):
+    location_state = build_user_location_state(
+        request.user, request.session.get(ACTIVE_USER_LOCATION_SESSION_KEY)
+    )
+    location_choices = location_state["locations"]
+    allowed_location_ids = location_state["allowed_ids"]
+    location_selection_required = location_state["selection_required"]
+    selected_location_id = location_state["selected_id"]
+
     if request.method == 'POST':
         form = WithdrawalForm(request.POST)
-        if form.is_valid():
+        posted_location_id = coerce_location_id(request.POST.get("selected_location"))
+        if posted_location_id is not None:
+            selected_location_id = posted_location_id
+        location_error = None
+        if allowed_location_ids:
+            if location_selection_required and not selected_location_id:
+                location_error = "Select a location for this withdrawal."
+            elif selected_location_id and selected_location_id not in allowed_location_ids:
+                location_error = "Invalid location selected."
+                selected_location_id = None
+        else:
+            selected_location_id = None
+        if form.is_valid() and not location_error:
             withdrawal = form.save(commit=False)
             withdrawal.user = request.user
 
@@ -98,6 +124,8 @@ def create_withdrawal(request):
             if item:
                 withdrawal.product_item = item
                 withdrawal.barcode = barcode
+                if selected_location_id:
+                    withdrawal.location_id = selected_location_id
 
                 if item.product_feature == 'volume':
                     volume_qty = form.cleaned_data.get('quantity', 0)
@@ -131,14 +159,29 @@ def create_withdrawal(request):
                 item.save()
                 item.refresh_from_db()
                 withdrawal.save()
+                if selected_location_id:
+                    request.session[ACTIVE_USER_LOCATION_SESSION_KEY] = selected_location_id
                 return redirect('inventory:dashboard')
             else:
                 form.add_error(None, "Product item not found. Check barcode, lot number, or expiry date.")
         else:
-            print("❌ Form Errors:", form.errors)
+            if location_error:
+                form.add_error(None, location_error)
+            else:
+                print("❌ Form Errors:", form.errors)
 
     else:
         form = WithdrawalForm()
 
     products = Product.objects.filter(items__current_stock__gt=0).distinct().order_by("name")
-    return render(request, 'inventory/create_withdrawal.html', {'form': form, 'products': products})
+    return render(
+        request,
+        'inventory/create_withdrawal.html',
+        {
+            'form': form,
+            'products': products,
+            'location_choices': location_choices,
+            'location_selection_required': location_selection_required,
+            'selected_location_id': selected_location_id,
+        },
+    )

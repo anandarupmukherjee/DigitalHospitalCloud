@@ -53,9 +53,7 @@ if (barcodeInput) {
             }
 
             // ✅ Also populate hidden fields for POST submission
-            const codeHidden =
-                document.getElementById("parsed_product_code_hidden") ||
-                document.getElementById("product_code_from_barcode");
+            const codeHidden = document.getElementById("product_code_from_barcode");
             const lotHidden = document.getElementById("lot_number_field");
             const expiryHidden = document.getElementById("expiry_date_field");
 

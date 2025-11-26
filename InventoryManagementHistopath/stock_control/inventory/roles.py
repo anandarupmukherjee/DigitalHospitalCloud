@@ -2,6 +2,7 @@ from django.contrib.auth.models import Group
 
 ROLE_DEFINITIONS = [
     ("inventory_manager", "Inventory Manager"),
+    ("team_manager", "Team Manager"),
     ("staff", "Staff"),
     ("supplier", "Supplier"),
 ]
@@ -14,6 +15,7 @@ LEGACY_ROLE_ALIASES = {
 }
 
 ROLE_INVENTORY_MANAGER = ROLE_KEY_TO_LABEL["inventory_manager"]
+ROLE_TEAM_MANAGER = ROLE_KEY_TO_LABEL["team_manager"]
 ROLE_STAFF = ROLE_KEY_TO_LABEL["staff"]
 ROLE_SUPPLIER = ROLE_KEY_TO_LABEL["supplier"]
 
@@ -70,6 +72,10 @@ def user_has_role(user, role_label):
 
 def user_is_inventory_manager(user):
     return user_has_role(user, ROLE_INVENTORY_MANAGER) or user.is_superuser
+
+
+def user_is_team_manager(user):
+    return user_has_role(user, ROLE_TEAM_MANAGER)
 
 
 def user_is_staff_role(user):

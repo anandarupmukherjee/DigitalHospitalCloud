@@ -18,7 +18,8 @@
   <script src="{% static 'inventory/part_calculation.js' %}"></script> 
   <script src="{% static 'inventory/barcode_parser.js' %}"></script> 
 </head>
-<body>
+{% with request.META.SCRIPT_NAME|default:'' as script_prefix %}
+<body data-root-url="{{ script_prefix }}">
   <!-- Navigation Bar (your original nav code) -->
     <!-- Navigation Bar -->
     {% include "includes/navbar.html" %}
@@ -52,6 +53,25 @@
         {% endif %}
 
         
+        {% if location_choices %}
+        <div class="form-group">
+          <label for="id_withdrawal_location">Withdrawal Location</label>
+          <select id="id_withdrawal_location" name="selected_location" {% if location_selection_required %}required{% endif %}>
+            {% if location_selection_required %}
+            <option value="">-- Choose Location --</option>
+            {% endif %}
+            {% for loc in location_choices %}
+              <option value="{{ loc.id }}" {% if loc.id == selected_location_id %}selected{% endif %}>{{ loc.name }}</option>
+            {% endfor %}
+          </select>
+          {% if location_selection_required %}
+            <p class="info-text">Select a location before scanning items.</p>
+          {% else %}
+            <p class="info-text">All withdrawals will be recorded against your assigned location.</p>
+          {% endif %}
+        </div>
+        {% endif %}
+
         <!-- Hidden field for product's units per quantity (used by JS for partial calcs) -->
         <input type="hidden" id="id_units_per_quantity" name="units_per_quantity" value="">
 
@@ -163,6 +183,22 @@
       </form>
     </div>
   </div>
+  {% if location_selection_required %}
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const locationSelect = document.getElementById("id_withdrawal_location");
+      const barcodeInput = document.getElementById("id_barcode");
+      if (!locationSelect || !barcodeInput) {
+        return;
+      }
+      const toggleBarcode = () => {
+        barcodeInput.disabled = !locationSelect.value;
+      };
+      toggleBarcode();
+      locationSelect.addEventListener("change", toggleBarcode);
+    });
+  </script>
+  {% endif %}
 </body>
 </html>
-
+{% endwith %}

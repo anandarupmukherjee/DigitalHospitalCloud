@@ -3,7 +3,7 @@
 
 <nav>
   <ul>
-    {% if user|has_role_or_admin:"Inventory Manager" or user|has_role:"Staff" %}
+    {% if user|has_role_or_admin:"Inventory Manager" or user|has_role:"Team Manager" or user|has_role:"Staff" %}
       <li><a href="{% url 'inventory:dashboard' %}">Dashboard</a></li>
       <li><a href="{% url 'inventory:product_list' %}">Product List</a></li>
     {% elif user|has_role:"Supplier" %}
@@ -11,11 +11,11 @@
       <li><a href="{% url 'analytics:track_expired_lots' %}">Expired Lots</a></li>
     {% endif %}
 
-    {% if user|has_role_or_admin:"Inventory Manager" %}
+    {% if user|has_role_or_admin:"Inventory Manager" or user|has_role:"Team Manager" %}
       <li><a href="{% url 'data_collection_3:register_stock' %}">Register Stock</a></li>
     {% endif %}
 
-    {% if user|has_role_or_admin:"Inventory Manager" or user|has_role:"Staff" %}
+    {% if user|has_role_or_admin:"Inventory Manager" or user|has_role:"Team Manager" or user|has_role:"Staff" %}
     <li><a href="{% url 'data_collection_2:create_withdrawal' %}">User Withdrawal</a></li>
     {% endif %}
 
@@ -26,6 +26,7 @@
       <div class="dropdown-content">
         <a href="/admin/">Database Admin Panel</a>
         <a href="{% url 'data_collection_1:stock_admin' %}">Stock Admin</a>
+        <a href="{% url 'inventory:product_supplier_mapping' %}">Product-Supplier Mapping</a>
         <a href="{% url 'inventory:import_inventory' %}">Import Inventory CSV</a>
         {% if module_flags.purchase_orders %}
           <a href="{% url 'purchase_orders:record_purchase_order' %}">Record PO</a>
@@ -38,14 +39,14 @@
     </li>
     {% endif %}
 
-    {% if module_flags.analytics and user|has_any_role:"Inventory Manager,Staff,Supplier,Leica Staff" %}
+    {% if module_flags.analytics and user|has_any_role:"Inventory Manager,Team Manager,Staff,Supplier,Leica Staff" %}
       <li class="dropdown">
         <a href="#" class="dropbtn">Reports &amp; Analytics</a>
         <div class="dropdown-content">
-          {% if user|has_role_or_admin:"Inventory Manager" or user|has_role:"Staff" %}
+          {% if user|has_role_or_admin:"Inventory Manager" or user|has_role:"Team Manager" or user|has_role:"Staff" %}
             <a href="{% url 'analytics:track_withdrawals' %}">Track Withdrawals</a>
           {% endif %}
-          {% if user|has_role_or_admin:"Inventory Manager" or user|has_role:"Supplier" %}
+          {% if user|has_role_or_admin:"Inventory Manager" or user|has_role:"Team Manager" or user|has_role:"Supplier" %}
             <a href="{% url 'analytics:track_low_lots' %}">Track Low Lots</a>
             <a href="{% url 'analytics:track_expired_lots' %}">Track Expired Lots</a>
           {% endif %}
@@ -58,7 +59,7 @@
       </li>
     {% endif %}
 
-    {% if module_flags.quality_control and user|has_role_or_admin:"Inventory Manager" %}
+    {% if module_flags.quality_control and user|has_role_or_admin:"Inventory Manager" or module_flags.quality_control and user|has_role:"Team Manager" %}
       <li><a href="{% url 'quality_control:list_checks' %}">Quality Control</a></li>
     {% endif %}
 

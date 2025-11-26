@@ -67,7 +67,7 @@ def get_status(app_cfg):
         container = docker_client.containers.get(container_name)
         return {"state": container.status, "details": ""}
     except docker.errors.NotFound:
-        return {"state": "not found", "details": "container not found"}
+        return {"state": "stopped", "details": "container not running"}
     except Exception as exc:
         return {"state": "error", "details": str(exc)}
 

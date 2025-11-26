@@ -137,7 +137,13 @@ def parse_barcode_data(raw):
     except Exception:
         pass
 
-    return None
+    # Fallback: treat the cleaned payload as the raw product code so that
+    # withdrawals can still attempt a lookup even if the scanner sends an
+    # unfamiliar format (e.g., plain product IDs).
+    fallback = _blank_result()
+    _store_codes(fallback, payload)
+    fallback["format"] = "raw"
+    return fallback
 
 
 def parse_barcode(request):
@@ -154,10 +160,10 @@ def get_product_by_barcode(request):
         return JsonResponse({"error": "No barcode provided"}, status=400)
 
     print(barcode)
-    product = Product.objects.filter(product_code=barcode).first()
+    product = Product.objects.filter(product_code__iexact=barcode).first()
 
     if not product and barcode.isdigit():
-        product = Product.objects.filter(product_code=barcode.lstrip("0")).first()
+        product = Product.objects.filter(product_code__iexact=barcode.lstrip("0")).first()
 
     if product:
         latest_item = product.items.order_by('-expiry_date').first()
