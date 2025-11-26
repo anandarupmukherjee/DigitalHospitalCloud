@@ -1,0 +1,52 @@
+# # version: '3.8'
+
+# services:
+#   web:
+#     build: .
+#     entrypoint: ["/code/entrypoint.sh"]
+#     volumes:
+#       - .:/code
+#       - static_volume:/code/staticfiles
+#     ports:
+#       - "8000:8000"
+#     restart: unless-stopped
+#     env_file:
+#       - django_secret_key
+#     environment:
+#       - DJANGO_STATICFILES_STORAGE=django.contrib.staticfiles.storage.ManifestStaticFilesStorage
+
+# volumes:
+#   static_volume:
+
+# version: '3.8'
+
+name: histopath
+
+services:
+  web:
+    build: .
+    container_name: histopath-web
+    command: ["/code/entrypoint.sh"]
+    volumes:
+      - .:/code
+    ports:
+      - "${PORT:-8001}:${PORT:-8001}"
+    restart: unless-stopped
+    env_file:
+      - django_secret_key
+    environment:
+      DJANGO_SUPERUSER_USERNAME: admin
+      DJANGO_SUPERUSER_PASSWORD: shoestring
+      DJANGO_SUPERUSER_EMAIL: admin@example.com
+      PORT: "${PORT:-8001}"
+      ENABLE_DATA_OUTPUT_LISTENER: "0"
+      FORCE_SCRIPT_NAME: /histopath
+    networks:
+      - default
+      - cloud_apps
+
+networks:
+  default:
+  cloud_apps:
+    external: true
+    name: digitalhospitalscloud_apps

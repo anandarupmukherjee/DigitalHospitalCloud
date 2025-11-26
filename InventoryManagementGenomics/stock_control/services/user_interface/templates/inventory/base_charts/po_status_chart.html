@@ -1,0 +1,30 @@
+<canvas id="purchaseOrderStatusChart"></canvas>
+<script>
+new Chart(document.getElementById('purchaseOrderStatusChart'), {
+  type: 'bar',
+  data: {
+    labels: {{ po_status_labels|safe }},
+    datasets: [{
+      label: 'Purchase Orders',
+      data: {{ po_status_counts|safe }},
+      backgroundColor: 'rgba(75, 192, 192, 0.6)'
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      title: { display: true, text: 'Purchase Orders by Status' }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        title: { display: true, text: 'Number of Orders' }
+      },
+      x: {
+        title: { display: true, text: 'Order Status' }
+      }
+    }
+  }
+});
+</script>

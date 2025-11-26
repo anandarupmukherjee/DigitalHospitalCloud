@@ -1,0 +1,123 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Download Report</title>
+  <link rel="stylesheet" href="{% static 'inventory/styles.css' %}">
+  <script src="{% static 'inventory/report_fields.js' %}" defer></script>
+  <script src="{% static 'inventory/report_.js' %}" defer></script>
+  <!-- <style>
+    .dashboard-container {
+      display: flex;
+      gap: 2rem;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .form-card, .table-preview {
+      flex: 1 1 45%;
+      max-width: 100%;
+    }
+    .table-wrapper {
+      overflow-x: auto;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.4rem 0.6rem;
+      text-align: left;
+    }
+    th {
+      background-color: #6b8fe0;
+    }
+    .btn {
+      margin-top: 1rem;
+    }
+  </style> -->
+</head>
+<body>
+
+{% include "includes/navbar.html" %}
+
+<!-- Page -->
+<div class="dashboard-container" style="display: flex; gap: 20px; align-items: flex-start;">
+
+  <!-- 📄 Report Form -->
+  <div class="card form-card" style="flex: 2;">
+    <h1>Generate Report</h1>
+    <form method="post" id="report-form">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label for="start_date">Start Date:</label>
+        <input type="date" id="start_date" name="start_date" required value="{{ start_date }}">
+
+        <label for="end_date">End Date:</label>
+        <input type="date" id="end_date" name="end_date" required value="{{ end_date }}">
+      </div>
+
+      <div class="form-group">
+        <label for="report_type">Select Model:</label>
+        <select id="report_type" name="report_type">
+          <option value="withdrawals" {% if report_type == 'withdrawals' %}selected{% endif %}>Withdrawals</option>
+          <option value="stock" {% if report_type == 'stock' %}selected{% endif %}>Product Stock</option>
+          <option value="purchase_orders" {% if report_type == 'purchase_orders' %}selected{% endif %}>Purchase Orders</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Fields to Include:</label>
+        <div id="field-container">
+          {% for field in all_fields %}
+            <div class="checkbox-field">
+              <label>
+                <input type="checkbox" name="fields" value="{{ field }}" {% if field in selected_fields %}checked{% endif %}>
+                {{ field|capfirst|cut:"_" }}
+              </label>              
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <button type="submit" name="preview" value="1" class="btn btn-secondary" id="preview-btn">Preview Data</button>
+      <button type="submit" name="download" value="1" class="btn btn-primary">Download XLSX</button>
+    </form>
+  </div>
+
+  <!-- 👁️ Preview Table -->
+  {% if field_headers and data_rows %}
+  <div class="card table-card" style="flex: 2;">
+    <h2>Preview</h2>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            {% for header in field_headers %}
+              <th>{{ header }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in data_rows %}
+            <tr>
+              {% for val in row %}
+                <td>{{ val }}</td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+</body>
+</html>

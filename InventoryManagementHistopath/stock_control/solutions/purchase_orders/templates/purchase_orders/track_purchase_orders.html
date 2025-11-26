@@ -1,0 +1,150 @@
+{% load static %}
+{% load inventory_extras %}
+{% load feature_flags %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Track & Complete Purchase Orders</title>
+  <link rel="stylesheet" href="{% static 'inventory/styles.css' %}">
+  <script src="{% static 'inventory/po_completion.js' %}" defer></script>
+</head>
+<body>
+
+  
+    <!-- Navigation Bar -->
+    {% include "includes/navbar.html" %}
+
+
+  <div class="dashboard-container" style="display: flex; gap: 20px; align-items: flex-start;">
+    
+    <!-- Purchase Orders Table -->
+    <div class="card table-card" style="flex: 2;">
+      <h2>Purchase Orders</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Product Code</th>
+            <th>Quantity</th>
+            <th>Order Date</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in purchase_orders %}
+            <tr class="po-row {% if order.status == 'Delayed' %}delayed-row{% endif %}"
+              data-product-code="{{ order.product_code }}"
+              data-product-name="{{ order.product_name }}"
+              data-quantity="{{ order.quantity_ordered }}"
+              data-expected="{{ order.expected_delivery|date:'Y-m-d\\TH:i' }}"
+              data-delivered-at="{% if order.status == 'Delivered' %}{{ order.delivered_at|date:'c' }}{% endif %}"
+            >
+              <td>{{ order.product_name }}</td>
+              <td>{{ order.product_code }}</td>
+              <td>{{ order.quantity_ordered }}</td>
+              <td>{{ order.order_date|date:'Y-m-d H:i' }}</td>
+              <td>
+                {% if order.status == "Delayed" %}
+                  <span class="status-delayed">⚠️ Delayed</span>
+                {% elif order.status == "Delivered" %}
+                  <span class="status-delivered">✅ Delivered</span>
+                {% else %}
+                  {{ order.status }}
+                {% endif %}
+              </td>
+              <td>
+                {% if order.status != "Delivered" %}
+                <button type="button" class="btn btn-primary fill-form-btn"
+                        data-product-code="{{ order.product_code }}"
+                        data-product-name="{{ order.product_name }}"
+                        data-quantity="{{ order.quantity_ordered }}"
+                        data-expected="{{ order.expected_delivery|date:'Y-m-d\\TH:i' }}">
+                  Complete
+                </button>
+                {% else %}
+                  <span class="text-muted">Complete</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">No purchase orders placed yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Complete PO Form -->
+<div class="card form-card" style="flex: 1;">
+  <h2>Complete Purchase Order</h2>
+
+  <!-- Barcode Scan Form -->
+  <form method="get" id="barcode-fetch-form">
+    <label for="po-barcode">Scan Barcode:</label>
+    <input type="text" name="raw" id="po-barcode" placeholder="Scan barcode..." class="form-control">
+    <button type="submit" class="btn btn-secondary">Fetch</button>
+  </form>
+
+  <hr>
+
+  <!-- Completion Submission Form -->
+  <form method="post" id="po-completion-form">
+    {% csrf_token %}
+    {{ completion_form.non_field_errors }}
+
+    <div class="mb-3">
+      {{ completion_form.barcode.label_tag }}
+      {{ completion_form.barcode|add_class:"form-control" }}
+    </div>
+    <!-- {{ completion_form.barcode.as_hidden }} -->
+
+
+    <fieldset>
+      <legend>Product Info</legend>
+
+      <div class="mb-2">
+        {{ completion_form.product_code.label_tag }}
+        {{ completion_form.product_code|add_class:"form-control" }}
+      </div>
+      <div class="mb-2">
+        {{ completion_form.product_name.label_tag }}
+        {{ completion_form.product_name|add_class:"form-control" }}
+      </div>
+      <div class="mb-2">
+        {{ completion_form.lot_number.label_tag }}
+        {{ completion_form.lot_number|add_class:"form-control" }}
+      </div>
+      <div class="mb-2">
+        {{ completion_form.expiry_date.label_tag }}
+        {{ completion_form.expiry_date|add_class:"form-control" }}
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Delivery Info</legend>
+
+      <div class="mb-2">
+        {{ completion_form.quantity_ordered.label_tag }}
+        {{ completion_form.quantity_ordered|add_class:"form-control" }}
+      </div>
+      <!-- <div class="mb-2">
+        {{ completion_form.expected_delivery.label_tag }}
+        {{ completion_form.expected_delivery|add_class:"form-control" }}
+      </div> -->
+      <div class="mb-2">
+        {{ completion_form.status.label_tag }}
+        {{ completion_form.status|add_class:"form-control" }}
+      </div>
+    </fieldset>
+    <!-- <input type="hidden" name="status" value="Delivered"> -->
+
+
+    <button type="submit" class="btn btn-success mt-3">Mark as Delivered</button>
+  </form>
+</div>
+
+  </div>
+</body>
+</html>

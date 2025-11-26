@@ -1,0 +1,60 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>New Quality Check</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+    {% include "includes/navbar.html" %}
+
+    <div class="dashboard-container">
+        <div class="card form-card">
+            <h2>Record Quality Check</h2>
+            <form method="post">
+                {% csrf_token %}
+                {% if location_choices %}
+                  <div class="form-group">
+                    <label for="id_qc_location">Quality Check Location</label>
+                    <select id="id_qc_location" name="selected_location" {% if location_selection_required %}required{% endif %}>
+                      {% if location_selection_required %}
+                        <option value="">-- Choose Location --</option>
+                      {% endif %}
+                      {% for loc in location_choices %}
+                        <option value="{{ loc.id }}" {% if loc.id == selected_location_id %}selected{% endif %}>{{ loc.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                {% endif %}
+                {{ form.as_p }}
+                <button type="submit" class="btn btn-primary">Save</button>
+            </form>
+        </div>
+    </div>
+    {% if location_selection_required %}
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        const locationSelect = document.getElementById("id_qc_location");
+        const formElement = document.querySelector(".form-card form");
+        if (!locationSelect || !formElement) {
+          return;
+        }
+        const toggleForm = () => {
+          const disabled = !locationSelect.value;
+          formElement.querySelectorAll("select:not(#id_qc_location), input, textarea, button")
+            .forEach(el => {
+              if (el.id === "id_qc_location" || el.type === "hidden") {
+                return;
+              }
+              el.disabled = disabled;
+            });
+        };
+        toggleForm();
+        locationSelect.addEventListener("change", toggleForm);
+      });
+    </script>
+    {% endif %}
+</body>
+</html>

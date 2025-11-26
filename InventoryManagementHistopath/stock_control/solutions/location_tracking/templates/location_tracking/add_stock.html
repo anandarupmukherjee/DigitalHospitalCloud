@@ -1,0 +1,65 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add Stock to Location</title>
+    <link rel="stylesheet" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+    {% include "includes/navbar.html" %}
+
+    <div class="dashboard-container">
+        <div class="card form-card">
+            <h2>Add Stock to Location</h2>
+
+            <form method="get" class="inline-form">
+                <label for="id_barcode_lookup">Scan Barcode:</label>
+                <input type="text" id="id_barcode_lookup" name="barcode_lookup" placeholder="Scan code to prefill" value="{{ barcode_lookup_value|default:'' }}" autofocus>
+                <button type="submit" class="btn btn-secondary">Lookup</button>
+            </form>
+
+            <form method="post">
+                {% csrf_token %}
+                {{ form.as_p }}
+                {% if selected_item %}
+                    <div class="info-text">
+                        Product stock: {{ display_total_stock|default:selected_item.current_stock }} |
+                        Threshold: {{ selected_item.product.threshold }}
+                        {% if location_stock_quantity is not None %}
+                            | At selected location: {{ location_stock_quantity }}
+                        {% endif %}
+                    </div>
+                {% endif %}
+                <button type="submit" class="btn btn-primary">Save</button>
+                <a href="{% url 'location_tracking:overview' %}" class="btn btn-secondary">Back</a>
+            </form>
+
+            {% if location_balances %}
+              <div class="card table-card" style="margin-top:16px;">
+                <h3>Current Allocation for this Lot</h3>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Location</th>
+                      <th>Quantity</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for entry in location_balances %}
+                      <tr>
+                        <td>{{ entry.location.name }}</td>
+                        <td>{{ entry.quantity }}</td>
+                      </tr>
+                    {% empty %}
+                      <tr><td colspan="2">No location data.</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

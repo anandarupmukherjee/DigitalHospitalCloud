@@ -1,0 +1,53 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ supplier.name }} Products</title>
+  <link rel="stylesheet" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+  {% include "includes/navbar.html" %}
+
+  <div class="dashboard-container">
+    <div class="card table-card">
+      <div class="card-header flex-between">
+        <h2>{{ supplier.name }} — Products</h2>
+        <div style="display:flex; gap:8px;">
+          <a class="btn btn-secondary" href="{% url 'inventory:manage_suppliers' %}">Back to Suppliers</a>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Product Code</th>
+              <th>Name</th>
+              <th>Total Stock</th>
+              <th>Threshold</th>
+              <th>Location</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for product in products %}
+              <tr>
+                <td>{{ product.product_code }}</td>
+                <td>{{ product.name }}</td>
+                <td>{{ product.total_stock }}</td>
+                <td>{{ product.threshold }}</td>
+                <td>{{ product.location_name }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="5">No products mapped to this supplier.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

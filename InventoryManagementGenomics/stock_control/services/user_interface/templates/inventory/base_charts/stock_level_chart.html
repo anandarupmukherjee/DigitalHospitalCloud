@@ -1,0 +1,36 @@
+<canvas id="stockLevelsChart"></canvas>
+<script>
+const stockNames = {{ stock_names|safe }};
+
+new Chart(document.getElementById('stockLevelsChart'), {
+  type: 'bar',
+  data: {
+    labels: {{ stock_labels|safe }},
+    datasets: [
+      {
+        label: 'In Stock',
+        data: {{ stock_values|safe }},
+        backgroundColor: 'rgba(54, 162, 235, 0.6)'
+      },
+      {
+        label: 'Threshold',
+        data: {{ threshold_values|safe }},
+        backgroundColor: 'rgba(255, 99, 132, 0.6)'
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { position: 'top' },
+      title: { display: true, text: 'Stock vs Threshold' },
+      tooltip: {
+        callbacks: {
+          title: (items) => items[0] ? (stockNames[items[0].dataIndex] || items[0].label) : '',
+          label: (ctx) => `${ctx.dataset.label}: ${ctx.formattedValue}`
+        }
+      }
+    }
+  }
+});
+</script>

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard · Logistics Tracker{% endblock %}
+
+{% block content %}
+<section class="dashboard-grid">
+    <div class="panel filter-panel">
+        <h2>Filter activity</h2>
+        <form id="trayFilters" class="filter-options">
+            <label>
+                <input type="radio" name="activity_filter" value="active_now" checked>
+                Active now
+            </label>
+            <label>
+                <input type="radio" name="activity_filter" value="active_6h">
+                Active in last 6 hrs
+            </label>
+            <label>
+                <input type="radio" name="activity_filter" value="active_12h">
+                Active in last 12 hrs
+            </label>
+            <label>
+                <input type="radio" name="activity_filter" value="active_24_plus">
+                Active for more than 24 hrs
+            </label>
+        </form>
+    </div>
+    <div class="map-container" id="trayMap"></div>
+    <div class="panel">
+        <h2>Tray Status</h2>
+        <ul class="tray-list" id="trayList" data-empty="No trays found for this filter.">
+            <li>Loading tray data…</li>
+        </ul>
+    </div>
+</section>
+{% endblock %}

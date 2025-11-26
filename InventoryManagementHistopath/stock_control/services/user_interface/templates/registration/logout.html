@@ -1,0 +1,15 @@
+<!-- templates/registration/logged_out.html -->
+{% load static %}
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Logged Out</title>
+  <link rel="stylesheet" type="text/css" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+  <h1>You have been logged out</h1>
+  <p><a href="{% url 'inventory:dashboard' %}">Login again?</a></p>
+</body>
+</html>
+

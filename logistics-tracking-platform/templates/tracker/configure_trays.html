@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Configure trays · Logistics Tracker{% endblock %}
+
+{% block content %}
+<section class="panel">
+    <h1>Configure trays</h1>
+    <p>
+        MQTT broker: <strong>{{ broker_host }}</strong>
+        {% if config_topics %}
+            · Config topic{% if config_topics|length > 1 %}s{% endif %}:
+            {% for topic in config_topics %}
+                <code>{{ topic }}</code>{% if not forloop.last %}, {% endif %}
+            {% endfor %}
+        {% endif %}
+    </p>
+    <p>
+        Fill out the Pico, tray, and location details below. Submitting the form publishes a JSON payload to
+        the shared config topic so the device can store its metadata (tray ID, location label, coordinates).
+        Each Pico only acts on messages where the <code>pico_id</code> matches its hardware ID.
+    </p>
+
+    <form method="post" class="user-form">
+        {% csrf_token %}
+        <div class="form-grid">
+            <label>Pico ID {{ form.pico_id }} {{ form.pico_id.errors }}</label>
+            <label>Tray ID {{ form.tray_id }} {{ form.tray_id.errors }}</label>
+            <label>Location label {{ form.location_label }} {{ form.location_label.errors }}</label>
+            <label>Latitude {{ form.latitude }} {{ form.latitude.errors }}</label>
+            <label>Longitude {{ form.longitude }} {{ form.longitude.errors }}</label>
+        </div>
+        <button type="submit">Send configuration</button>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Message preview</h2>
+    <p>The Pico receives JSON formatted like:</p>
+    <pre>{
+  "pico_id": "PICO-001",
+  "tray_id": "ER-01",
+  "location_label": "ER Intake",
+  "latitude": 40.7128,
+  "longitude": -74.006
+}</pre>
+</section>
+{% endblock %}

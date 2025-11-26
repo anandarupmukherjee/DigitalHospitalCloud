@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.log
+.DS_Store
+
+# Environment and local config
+.env
+
+# Databases and data exports
+*.db
+*.sqlite3
+*.csv
+*.xlsx

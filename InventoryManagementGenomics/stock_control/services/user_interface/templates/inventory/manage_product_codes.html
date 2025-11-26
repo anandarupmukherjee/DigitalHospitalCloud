@@ -1,0 +1,68 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage Product Codes</title>
+    <link rel="stylesheet" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+    {% include "includes/navbar.html" %}
+
+    <div class="dashboard-container">
+        <div class="card form-card">
+            <h2>{% if editing %}Edit Product{% else %}Add Product{% endif %}</h2>
+            <form method="post">
+                {% csrf_token %}
+                {% if editing %}
+                    <input type="hidden" name="product_id" value="{{ editing.id }}">
+                {% endif %}
+                {{ form.as_p }}
+                <button type="submit" class="btn btn-primary">
+                    {% if editing %}Update Product{% else %}Add Product{% endif %}
+                </button>
+                {% if editing %}
+                    <a href="{% url 'inventory:manage_product_codes' %}" class="btn btn-secondary">Cancel</a>
+                {% endif %}
+            </form>
+        </div>
+
+        <div class="card table-card">
+            <h2>Product Codes</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Name</th>
+                        <th>Supplier</th>
+                        <th>Location</th>
+                        <th>Threshold</th>
+                        <th>Lead Time (days)</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                        <tr>
+                            <td>{{ product.product_code }}</td>
+                            <td>{{ product.name }}</td>
+                            <td>{{ product.supplier_display }}</td>
+                            <td>{{ product.location.name|default:"—" }}</td>
+                            <td>{{ product.threshold }}</td>
+                            <td>{{ product.lead_time.days }}</td>
+                            <td>
+                                <a class="btn btn-small" href="{% url 'inventory:manage_product_codes' %}?product_id={{ product.id }}">Edit</a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6">No products defined yet.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

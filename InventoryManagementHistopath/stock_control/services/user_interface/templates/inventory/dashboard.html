@@ -1,0 +1,99 @@
+{% load static %}
+{% load feature_flags %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Inventory Dashboard</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'inventory/styles.css' %}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        
+</head>
+<body>
+
+    {% include "includes/navbar.html" %}
+
+    <div class="dashboard-container">
+        <!-- Welcome Card -->
+        <div class="card">
+            <h1>Welcome to the Inventory Dashboard</h1>
+            {% if user.is_authenticated %}
+                <p>Logged in as: <strong>{{ user.username }}</strong></p>
+            {% else %}
+                <p>You are not logged in.</p>
+            {% endif %}
+            <a href="{% url 'inventory:help' %}" class="btn btn-secondary">Help &amp; User Guide</a>
+        </div>
+
+        <!-- Grid Container for Summary + Charts -->
+        <div class="dashboard-grid">
+
+            <!-- System Summary -->
+            <div class="dashboard-card">
+                <h2>System Summary</h2>
+                <table class="alert-table">
+                    <tbody>
+                        <tr>
+                            <td>Low Stock Alerts</td>
+                            <td><span class="status-indicator {% if has_low_stock_alerts %}blinking-red{% else %}green{% endif %}"></span></td>
+                        </tr>
+                        <tr>
+                            <td>Expired Lot Alerts</td>
+                            <td><span class="status-indicator {% if has_expired_lot_alerts %}blinking-red{% else %}green{% endif %}"></span></td>
+                        </tr>
+                        <tr>
+                            <td>Products Missing Threshold</td>
+                            <td><span class="status-indicator {% if has_missing_thresholds %}blinking-red{% else %}green{% endif %}"></span></td>
+                        </tr>
+                        <tr>
+                            <td>Duplicate Product Names</td>
+                            <td>
+                                {% if duplicate_product_names %}
+                                    <ul>
+                                        {% for name in duplicate_product_names %}
+                                            <li>{{ name }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% else %}
+                                    <span class="status-indicator green"></span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Total Users Registered</td>
+                            <td><strong>{{ total_users }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Total Locations</td>
+                            <td><strong>{{ total_locations }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Total Unique Products</td>
+                            <td><strong>{{ total_products }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Charts -->
+            <div class="dashboard-card">
+                {% include 'inventory/base_charts/stock_level_chart.html' %}
+            </div>
+            <div class="dashboard-card">
+                {% include 'inventory/base_charts/supplier_distribution_chart.html' %}
+            </div>
+            <div class="dashboard-card">
+                {% include 'inventory/base_charts/withdrawal_trend_chart.html' %}
+            </div>
+            <div class="dashboard-card">
+                {% include 'inventory/base_charts/top_withdrawn_chart.html' %}
+            </div>
+            <div class="dashboard-card">
+                {% include 'inventory/base_charts/location_distribution_chart.html' %}
+            </div>
+
+        </div> <!-- end .dashboard-grid -->
+    </div>
+</body>
+</html>

@@ -1,0 +1,189 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Intelligence (Experimental)</title>
+  <link rel="stylesheet" type="text/css" href="{% static 'inventory/styles.css' %}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  {% include "includes/navbar.html" %}
+
+  <div class="dashboard-container">
+    <div class="card">
+      <div class="card-header">
+        <h2>Intelligence (Experimental)</h2>
+      </div>
+
+      <div class="card">
+        <h3>Location Allocation Optimization</h3>
+        <canvas id="allocationChart" style="max-height:260px;"></canvas>
+        {% if location_transfer_recs %}
+          <table>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Quantity</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for rec in location_transfer_recs %}
+                <tr>
+                  <td>{{ rec.product.product_code }} — {{ rec.product.name }}</td>
+                  <td>{{ rec.from_location.name|default:"—" }}</td>
+                  <td>{{ rec.to_location.name|default:"—" }}</td>
+                  <td>{{ rec.quantity }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p>No transfer suggestions based on current allocations.</p>
+        {% endif %}
+      </div>
+
+      <div class="card">
+        <h3>Expiry & Ageing Heatmap</h3>
+        <canvas id="expiryChart" style="max-height:260px;"></canvas>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Bucket</th>
+                <th>Lots</th>
+                <th>Total Qty</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for label, data in bucket_counts.items %}
+                <tr>
+                  <td>{{ label }}</td>
+                  <td>{{ data.lots }}</td>
+                  <td>{{ data.qty }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <h4>At-Risk Lots (next 30 days)</h4>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Lot</th>
+                <th>Expiry</th>
+                <th>Days Left</th>
+                <th>Qty</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for lot in at_risk_lots %}
+                <tr>
+                  <td>{{ lot.product.product_code }} — {{ lot.product.name }}</td>
+                  <td>{{ lot.lot }}</td>
+                  <td>{{ lot.expiry|date:"Y-m-d" }}</td>
+                  <td>{{ lot.days }}</td>
+                  <td>{{ lot.qty }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="5">No at-risk lots in the next 30 days.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Stock Turnover & Slow Movers (last {{ window_days }} days)</h3>
+        <canvas id="turnoverChart" style="max-height:260px;"></canvas>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Stock</th>
+                <th>Withdrawn</th>
+                <th>Turnover</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in slow_movers %}
+                <tr>
+                  <td>{{ row.product.product_code }} — {{ row.product.name }}</td>
+                  <td>{{ row.total_stock }}</td>
+                  <td>{{ row.withdrawn }}</td>
+                  <td>{{ row.turnover }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="4">No slow movers identified.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function() {
+      const allocCtx = document.getElementById("allocationChart");
+      if (allocCtx) {
+        new Chart(allocCtx, {
+          type: 'bar',
+          data: {
+            labels: {{ allocation_chart_labels|safe }},
+            datasets: [{
+              label: 'Suggested Qty to Move',
+              data: {{ allocation_chart_values|safe }},
+              backgroundColor: 'rgba(54, 162, 235, 0.6)'
+            }]
+          },
+          options: { responsive: true, plugins: { legend: { display: false }, title: { display: true, text: 'Top Transfer Suggestions by Product' } } }
+        });
+      }
+
+      const expiryCtx = document.getElementById("expiryChart");
+      if (expiryCtx) {
+        new Chart(expiryCtx, {
+          type: 'doughnut',
+          data: {
+            labels: {{ expiry_labels|safe }},
+            datasets: [{
+              label: 'Qty',
+              data: {{ expiry_values|safe }},
+              backgroundColor: [
+                'rgba(255, 99, 132, 0.6)',
+                'rgba(255, 159, 64, 0.6)',
+                'rgba(255, 205, 86, 0.6)',
+                'rgba(75, 192, 192, 0.6)'
+              ]
+            }]
+          },
+          options: { responsive: true, plugins: { legend: { position: 'bottom' }, title: { display: true, text: 'Stock by Expiry Bucket' } } }
+        });
+      }
+
+      const turnoverCtx = document.getElementById("turnoverChart");
+      if (turnoverCtx) {
+        new Chart(turnoverCtx, {
+          type: 'bar',
+          data: {
+            labels: {{ slow_labels|safe }},
+            datasets: [{
+              label: 'Turnover (withdrawn/stock)',
+              data: {{ slow_turnover|safe }},
+              backgroundColor: 'rgba(153, 102, 255, 0.6)'
+            }]
+          },
+          options: { responsive: true, plugins: { legend: { display: false }, title: { display: true, text: 'Slow Movers (lower is slower)' } } }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

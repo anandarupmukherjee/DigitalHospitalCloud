@@ -1,0 +1,36 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>User Location Assignments</title>
+    <link rel="stylesheet" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+    {% include "includes/navbar.html" %}
+
+    <div class="dashboard-container">
+        <div class="card form-card">
+            <h2>Assign Users to Locations</h2>
+            <form method="post">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit" class="btn btn-primary">Save</button>
+                <a href="{% url 'location_tracking:overview' %}" class="btn btn-secondary">Back</a>
+            </form>
+        </div>
+
+        {% if assignments %}
+        <div class="card table-card">
+            <h3>Current Assignments</h3>
+            <ul>
+                {% for assignment in assignments %}
+                    <li>{{ assignment.location.name }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

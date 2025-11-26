@@ -1,0 +1,43 @@
+services:
+  web:
+    build: .
+    container_name: logistics-tracking-web
+    env_file:
+      - .env
+    environment:
+      SERVICE_ROLE: web
+      DJANGO_FORCE_SCRIPT_NAME: /tracker
+    ports:
+      - "${PORT:-8003}:${PORT:-8003}"
+    volumes:
+      - .:/app
+      - static_volume:/app/staticfiles
+    restart: unless-stopped
+    networks:
+      - default
+      - cloud_apps
+  listener:
+    build: .
+    container_name: logistics-tracking-listener
+    env_file:
+      - .env
+    environment:
+      SERVICE_ROLE: listener
+      DJANGO_COLLECTSTATIC: "0"
+    volumes:
+      - .:/app
+    depends_on:
+      - web
+    restart: unless-stopped
+    networks:
+      - default
+      - cloud_apps
+
+volumes:
+  static_volume:
+
+networks:
+  default:
+  cloud_apps:
+    external: true
+    name: digitalhospitalscloud_apps

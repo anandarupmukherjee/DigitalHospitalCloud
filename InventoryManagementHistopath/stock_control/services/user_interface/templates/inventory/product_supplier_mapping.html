@@ -1,0 +1,71 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Product-Supplier Mapping</title>
+  <link rel="stylesheet" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+  {% include "includes/navbar.html" %}
+
+  <div class="dashboard-container">
+    <div class="card table-card">
+      <h1>Product-Supplier Mapping</h1>
+      <p class="info-text">
+        Pair each product with a supplier reference. Use the dropdown to switch suppliers; changes save immediately per row.
+      </p>
+
+      {% if messages %}
+        <div class="form-errors">
+          {% for message in messages %}
+            <p>{{ message }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Product Code</th>
+              <th>Name</th>
+              <th>Current Supplier</th>
+              <th>Assign Supplier</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for product in products %}
+              <tr>
+                <td>{{ product.product_code }}</td>
+                <td>{{ product.name }}</td>
+                <td>{{ product.supplier_ref.name|default:product.get_supplier_display }}</td>
+                <td>
+                  <form method="POST" class="inline-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="product_id" value="{{ product.id }}">
+                    <select name="supplier_ref_id">
+                      <option value="">-- Unassigned --</option>
+                      {% for supplier in suppliers %}
+                        <option value="{{ supplier.id }}" {% if product.supplier_ref_id == supplier.id %}selected{% endif %}>
+                          {{ supplier.name }}
+                        </option>
+                      {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-primary btn-small">Save</button>
+                  </form>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="4">No products found.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

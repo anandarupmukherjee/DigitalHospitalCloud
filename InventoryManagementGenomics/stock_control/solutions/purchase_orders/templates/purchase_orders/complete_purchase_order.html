@@ -1,0 +1,51 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Complete Purchase Order</title>
+  <link rel="stylesheet" href="{% static 'inventory/styles.css' %}">
+  <script src="{% static 'inventory/po_completion.js' %}" defer></script>
+</head>
+<body>
+  {% include "includes/navbar.html" %}
+
+  <div class="dashboard-container">
+    <div class="card form-card">
+      <h2>Complete Purchase Order</h2>
+      <form method="get">
+        <label for="po-barcode">Scan Barcode:</label>
+        <input type="text" name="raw" id="po-barcode" placeholder="Scan barcode..." autofocus>
+        <button type="submit" class="btn">Fetch</button>
+      </form>
+
+      <hr>
+
+      <form method="post">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <div>
+          {{ form.barcode.label_tag }} {{ form.barcode }}
+        </div>
+
+        <fieldset>
+          <legend>Product Info</legend>
+          <div>{{ form.product_code.label_tag }} {{ form.product_code }}</div>
+          <div>{{ form.product_name.label_tag }} {{ form.product_name }}</div>
+          <div>{{ form.lot_number.label_tag }} {{ form.lot_number }}</div>
+          <div>{{ form.expiry_date.label_tag }} {{ form.expiry_date }}</div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Delivery Info</legend>
+          <div>{{ form.quantity_ordered.label_tag }} {{ form.quantity_ordered }}</div>
+          <div>{{ form.status.label_tag }} {{ form.status }}</div>
+        </fieldset>
+
+        <button type="submit" class="btn btn-primary">Mark as Delivered</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
