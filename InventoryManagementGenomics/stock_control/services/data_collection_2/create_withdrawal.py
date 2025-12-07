@@ -87,13 +87,22 @@ def create_withdrawal(request):
                     barcode_data.get("raw_product_code") if barcode_data else None,
                     barcode_data.get("product_code") if barcode_data else None,
                     barcode_data.get("normalized_product_code") if barcode_data else None,
+                    (barcode_data.get("qr_numeric_code") if barcode_data else None),
                     barcode,
                 )
 
                 # Start with matching product
                 product = None
                 for candidate in code_candidates or []:
-                    product = Product.objects.filter(product_code__iexact=candidate).first()
+                    if not candidate:
+                        continue
+                    product = Product.objects.filter(
+                        product_code__iexact=candidate
+                    ).first()
+                    if not product and candidate.isdigit():
+                        product = Product.objects.filter(
+                            qr_numeric_code=int(candidate)
+                        ).first()
                     if product:
                         break
 

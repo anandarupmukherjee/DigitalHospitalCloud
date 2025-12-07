@@ -85,10 +85,14 @@ class ProductForm(forms.ModelForm):
         fields = [
             'product_code',
             'name',
+            'alias',
+            'punchout',
             'supplier',
             'supplier_ref',
             'location',
             'threshold',
+            'minimum_stock_unopened',
+            'ideal_stock_level',
             'lead_time',
         ]
 

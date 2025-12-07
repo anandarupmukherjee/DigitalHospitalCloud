@@ -13,6 +13,7 @@ from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.timezone import now
 from django.db import transaction
+from django.db.models import Sum
 from django.http import Http404
 from django.urls import reverse_lazy
 import pandas as pd
@@ -72,6 +73,7 @@ class ResetInventoryForm(forms.Form):
         ("clear_lots", "Clear lots (ProductItem records)"),
         ("clear_stock", "Clear stock records (registrations/withdrawals, zero out lots)"),
         ("clear_all", "Clear all inventory records"),
+        ("clear_stock_in", "Clear all stock-in consolidation records"),
     ]
     action = forms.ChoiceField(widget=forms.RadioSelect, choices=RESET_CHOICES)
 
@@ -217,6 +219,92 @@ def delete_lot(request, item_id):
 def create_withdrawal(request):
     return _create_withdrawal(request)
 
+
+@login_required
+@user_passes_test(is_admin, login_url='inventory:dashboard')
+def stock_in_overview(request):
+    """
+    Consolidated view of stock expected to be registered based on QR
+    codes that have been generated (messages on the print topic).
+    Users can record the planned quantity and intended location; as
+    stock is actually registered via barcode scans, the registered
+    quantity is subtracted to show what remains outstanding.
+    """
+    from services.data_storage.models import StockInEntry
+
+    if request.method == "POST":
+        entry_id = request.POST.get("entry_id")
+        if entry_id:
+            entry = get_object_or_404(StockInEntry, id=entry_id)
+            qty_raw = (request.POST.get("quantity_expected") or "").strip()
+            location_id_raw = (request.POST.get("location_id") or "").strip()
+
+            try:
+                quantity_expected = int(qty_raw) if qty_raw else 0
+                if quantity_expected < 0:
+                    quantity_expected = 0
+            except ValueError:
+                quantity_expected = 0
+
+            entry.quantity_expected = quantity_expected
+            entry.intended_location_id = int(location_id_raw) if location_id_raw else None
+            entry.save()
+            messages.success(request, "Stock-in entry updated.", extra_tags="stock_in")
+        return redirect("inventory:stock_in_overview")
+
+    from services.data_storage.models import StockInEntry
+
+    entries = (
+        StockInEntry.objects.select_related("product", "intended_location")
+        .order_by("-last_printed_at")
+    )
+
+    # Build registration summary: total registered quantity per (product, location)
+    product_ids = list(entries.values_list("product_id", flat=True))
+    regs_qs = StockRegistration.objects.filter(
+        product_item__product_id__in=product_ids
+    ).values("product_item__product_id", "location_id")
+    regs_summary = {}
+    product_totals = {}
+    for row in regs_qs.annotate(total=Sum("quantity")):
+        key = (row["product_item__product_id"], row["location_id"])
+        regs_summary[key] = row["total"] or 0
+        product_totals[row["product_item__product_id"]] = (
+            product_totals.get(row["product_item__product_id"], 0) + row["total"]
+        )
+
+    # Attach computed fields for template rendering.
+    entries_with_status = []
+    for entry in entries:
+        if entry.intended_location_id:
+            registered = regs_summary.get(
+                (entry.product_id, entry.intended_location_id), 0
+            )
+        else:
+            registered = product_totals.get(entry.product_id, 0)
+
+        entry.registered_quantity = registered
+        planned_quantity = entry.quantity_expected
+        if not planned_quantity:
+            # Default to the number of QR codes printed so brand new rows stay visible
+            planned_quantity = entry.print_count or 0
+
+        entry.remaining_quantity = max(planned_quantity - registered, 0)
+        entry.is_pending = bool(entry.remaining_quantity > 0)
+        if entry.is_pending:
+            entries_with_status.append(entry)
+
+    locations = Location.objects.order_by("name")
+
+    return render(
+        request,
+        "inventory/stock_in_overview.html",
+        {
+            "entries": entries_with_status,
+            "locations": locations,
+        },
+    )
+
 ####################################
 
 
@@ -249,13 +337,15 @@ def product_list(request):
     if barcode_value:
         parsed = parse_barcode_data(barcode_value)
         product_code = ""
+        qr_numeric_code = ""
         if parsed:
             product_code = (parsed.get("product_code") or "").strip()
+            qr_numeric_code = (parsed.get("qr_numeric_code") or "").strip()
         else:
             product_code = barcode_value
 
         lookup_codes = []
-        for code in (product_code, barcode_value):
+        for code in (product_code, barcode_value, qr_numeric_code):
             if not code:
                 continue
             lookup_codes.append(code)
@@ -264,7 +354,15 @@ def product_list(request):
 
         matched_product = None
         for code in lookup_codes:
+            if not code:
+                continue
+            # Try product_code match first.
             matched_product = Product.objects.filter(product_code__iexact=code).first()
+            # If not found and numeric, try QR numeric mapping.
+            if not matched_product and code.isdigit():
+                matched_product = Product.objects.filter(
+                    qr_numeric_code=int(code)
+                ).first()
             if matched_product:
                 break
         if matched_product:
@@ -478,6 +576,9 @@ def import_inventory(request):
                         ProductItem.objects.all().delete()
                     if action == "clear_all":
                         Product.objects.all().delete()
+                    if action in ("clear_stock_in", "clear_all"):
+                        from services.data_storage.models import StockInEntry
+                        StockInEntry.objects.all().delete()
                 messages.success(request, f"Inventory reset performed: {dict(reset_form.fields['action'].choices).get(action)}")
         else:
             form = InventoryUploadForm(request.POST, request.FILES)

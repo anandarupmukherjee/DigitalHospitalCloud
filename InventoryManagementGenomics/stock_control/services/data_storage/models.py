@@ -4,6 +4,32 @@ from decimal import Decimal
 from datetime import date, timedelta
 from django.utils import timezone
 from django.utils.timezone import now
+from django.core.validators import MinValueValidator
+from typing import Optional
+
+
+def default_expiry_date():
+    """
+    Default expiry: 3 years from the record date.
+    Used when no explicit expiry date is provided.
+    """
+    return date.today() + timedelta(days=365 * 3)
+
+
+def generate_product_qr_payload(
+    product_code: str,
+    alias: str,
+    name: str,
+    numeric_code: Optional[int] = None,
+) -> str:
+    """
+    Build a simple, stable payload string for QR codes.
+    This can be passed to any QR-code generator when printing labels.
+    Format: "<numeric_code> | <alias> | <name> | <product_code>"
+    """
+    numeric_part = str(numeric_code) if numeric_code is not None else ""
+    parts = [numeric_part, alias or "", name or "", product_code or ""]
+    return " | ".join(parts)
 
 
 class Supplier(models.Model):
@@ -30,7 +56,12 @@ class Product(models.Model):
         ('THIRD_PARTY', 'Third Party'),
     ]
     product_code = models.CharField(max_length=50, unique=True)
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=200)
+    alias = models.CharField(max_length=200, blank=True, help_text="Short name or commonly used alias.")
+    punchout = models.BooleanField(
+        default=False,
+        help_text="Whether this product is ordered via punchout (Y/N in your source list).",
+    )
     supplier = models.CharField(max_length=20, choices=SUPPLIER_CHOICES, default='LEICA')
     supplier_ref = models.ForeignKey(
         Supplier,
@@ -47,6 +78,31 @@ class Product(models.Model):
         related_name="products",
     )
     threshold = models.PositiveIntegerField()
+    minimum_stock_unopened = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0.00"))],
+        help_text="Minimum target stock level for unopened items.",
+    )
+    ideal_stock_level = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0.00"))],
+        help_text="Ideal stock level for planning and purchasing.",
+    )
+    qr_code_data = models.CharField(
+        max_length=256,
+        blank=True,
+        help_text="Payload used to generate QR codes for this product.",
+    )
+    qr_numeric_code = models.PositiveIntegerField(
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Numeric identifier used inside QR codes for this product.",
+    )
     lead_time = models.DurationField(default=timedelta(days=1), help_text="Lead time (e.g., 1 day, 2 hours)")
 
     def __str__(self):
@@ -64,11 +120,31 @@ class Product(models.Model):
             return self.supplier_ref.name
         return self.get_supplier_display()
 
+    def save(self, *args, **kwargs):
+        # Assign a stable numeric QR identifier if missing.
+        if not self.qr_numeric_code:
+            last = (
+                Product.objects.aggregate(models.Max("qr_numeric_code"))[
+                    "qr_numeric_code__max"
+                ]
+                or 100000
+            )
+            self.qr_numeric_code = last + 1
+
+        # Always keep QR payload in sync with core identity fields and numeric code.
+        self.qr_code_data = generate_product_qr_payload(
+            product_code=self.product_code,
+            alias=self.alias,
+            name=self.name,
+            numeric_code=self.qr_numeric_code,
+        )
+        super().save(*args, **kwargs)
+
 
 class ProductItem(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="items")
     lot_number = models.CharField(max_length=50, default="LOT000")
-    expiry_date = models.DateField(default=date.today)
+    expiry_date = models.DateField(default=default_expiry_date)
     current_stock = models.DecimalField(
         max_digits=12, decimal_places=2, default=Decimal('0.00'),
         help_text="Stock available for this lot"
@@ -185,6 +261,46 @@ class StockRegistration(models.Model):
     def __str__(self):
         return f"{self.product_name} registered on {self.timestamp}"
 
+
+class StockInEntry(models.Model):
+    """
+    Consolidated record of printed QR codes for stock that is expected
+    to arrive or be registered at a location.
+    """
+
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="stock_in_entries",
+    )
+    product_code = models.CharField(max_length=50)
+    product_name = models.CharField(max_length=200)
+    qrcode_value = models.CharField(max_length=128)
+
+    first_printed_at = models.DateTimeField()
+    last_printed_at = models.DateTimeField()
+    print_count = models.PositiveIntegerField(default=1)
+
+    intended_location = models.ForeignKey(
+        Location,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stock_in_entries",
+    )
+    quantity_expected = models.PositiveIntegerField(
+        default=0,
+        help_text="Planned quantity to be registered at the intended location.",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-last_printed_at"]
+
+    def __str__(self):
+        return f"StockIn for {self.product_code} ({self.product_name})"
 
 class PurchaseOrder(models.Model):
     product_item = models.ForeignKey('ProductItem', on_delete=models.SET_NULL, null=True, blank=True)

@@ -165,19 +165,27 @@ def lot_status(request):
     if barcode_value:
         parsed = parse_barcode_data(barcode_value)
         product_code = ""
+        qr_numeric_code = ""
         if parsed:
             product_code = (parsed.get("product_code") or "").strip()
+            qr_numeric_code = (parsed.get("qr_numeric_code") or "").strip()
         else:
             product_code = barcode_value
 
-        lookup_codes = [product_code, barcode_value]
+        lookup_codes = [product_code, barcode_value, qr_numeric_code]
         if product_code.isdigit():
             lookup_codes.append(product_code.lstrip("0"))
+        if qr_numeric_code and qr_numeric_code.isdigit():
+            lookup_codes.append(qr_numeric_code.lstrip("0"))
 
         for code in lookup_codes:
             if not code:
                 continue
             selected_product = Product.objects.filter(product_code__iexact=code).first()
+            if not selected_product and code.isdigit():
+                selected_product = Product.objects.filter(
+                    qr_numeric_code=int(code)
+                ).first()
             if selected_product:
                 break
         if not selected_product:

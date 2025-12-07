@@ -61,11 +61,13 @@ def register_stock(request):
         product_code = ""
         lot_number = ""
         expiry_str = ""
+        qr_numeric_code = ""
 
         if parsed:
             product_code = (parsed.get("product_code") or "").strip()
             lot_number = (parsed.get("lot_number") or "").strip()
             expiry_str = (parsed.get("expiry_date") or "").strip()
+            qr_numeric_code = (parsed.get("qr_numeric_code") or "").strip()
         else:
             product_code = raw_barcode
 
@@ -78,22 +80,31 @@ def register_stock(request):
                 except ValueError:
                     continue
 
-        search_codes = []
-        candidates = [product_code, raw_barcode]
-        for code in candidates:
-            if not code:
-                continue
-            search_codes.append(code)
-            if code.isdigit():
-                search_codes.append(code.lstrip("0"))
-
         product = None
-        for code in search_codes:
-            if not code:
-                continue
-            product = Product.objects.filter(product_code__iexact=code).first()
-            if product:
-                break
+
+        # Prefer matching by QR numeric code when present (GS1 QR flow).
+        if qr_numeric_code and qr_numeric_code.isdigit():
+            product = Product.objects.filter(
+                qr_numeric_code=int(qr_numeric_code)
+            ).first()
+
+        # Fallback: legacy behaviour based on product_code / raw barcode.
+        if not product:
+            search_codes = []
+            candidates = [product_code, raw_barcode]
+            for code in candidates:
+                if not code:
+                    continue
+                search_codes.append(code)
+                if code.isdigit():
+                    search_codes.append(code.lstrip("0"))
+
+            for code in search_codes:
+                if not code:
+                    continue
+                product = Product.objects.filter(product_code__iexact=code).first()
+                if product:
+                    break
 
         if not product:
             messages.error(request, "No product matches the scanned barcode.", extra_tags="register_stock")
