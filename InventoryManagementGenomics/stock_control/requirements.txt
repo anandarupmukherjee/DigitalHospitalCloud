@@ -8,3 +8,4 @@ numpy==1.23.5
 statsmodels
 pyyaml
 paho-mqtt==1.6.1
+sentence-transformers>=2.6.0
