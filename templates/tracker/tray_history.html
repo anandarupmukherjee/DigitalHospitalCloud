@@ -31,6 +31,21 @@
             </label>
             <button type="submit">Update</button>
         </form>
+        {% if selected_tray %}
+            <form method="post"
+                  class="tray-delete-form"
+                  onsubmit="return confirm('Delete tray {{ selected_tray.tray_id }} and all its history?');">
+                {% csrf_token %}
+                <input type="hidden" name="tray" value="{{ selected_tray.id }}">
+                <button type="submit" class="danger-btn">Delete tray</button>
+            </form>
+            <div class="tray-actions">
+                <a href="{% url 'tray-report-download' selected_tray.id %}?range={{ range_key }}"
+                   class="ghost-btn download-report-btn">
+                    Download Excel report
+                </a>
+            </div>
+        {% endif %}
 
         {% if selected_tray %}
             <div class="snapshot-grid">
@@ -51,39 +66,111 @@
                         <p>No snapshot available.</p>
                     {% endif %}
                 </article>
-                <div class="stats-grid">
-                    <div>
-                        <h3>Total activations</h3>
-                        <p>{{ stats.total_activations }}</p>
-                    </div>
-                    <div>
-                        <h3>Avg. collection time</h3>
-                        <p>{{ stats.avg_duration|floatformat:2 }} hrs</p>
-                    </div>
-                    <div>
-                        <h3>Longest collection</h3>
-                        <p>{{ stats.longest_duration|floatformat:2 }} hrs</p>
-                    </div>
-                    <div>
-                        <h3>Utilization</h3>
-                        <p>{{ stats.utilization|floatformat:1 }}%</p>
-                    </div>
-                    {% if stats.open_duration %}
-                        <div>
-                            <h3>Ongoing collection</h3>
-                            <p>{{ stats.open_duration|floatformat:2 }} hrs</p>
+                <article class="panel heartbeat-card">
+                    <h2>Tray alive status</h2>
+                    {% if heartbeat_status %}
+                        <div class="heartbeat-pill {% if heartbeat_status.is_alive %}alive{% else %}down{% endif %}">
+                            <span class="heartbeat-dot {% if heartbeat_status.is_alive %}alive{% else %}down{% endif %}"></span>
+                            <div>
+                                <p class="heartbeat-state">
+                                    {% if heartbeat_status.is_alive %}
+                                        Signal alive
+                                    {% else %}
+                                        No heartbeat
+                                    {% endif %}
+                                </p>
+                                <p class="heartbeat-meta">
+                                    Last seen:
+                                    <strong>{{ heartbeat_status.last_seen_at|default:"Never" }}</strong>
+                                </p>
+                                <p class="heartbeat-meta">
+                                    Threshold: {{ heartbeat_status.threshold_seconds }}s
+                                </p>
+                            </div>
                         </div>
+                        <div class="heartbeat-history collapsed" data-heartbeat-history>
+                            <div class="heartbeat-history-header">
+                                <h3>Alive history ({{ range_label }})</h3>
+                                <button type="button"
+                                        class="ghost-btn heartbeat-toggle-btn"
+                                        data-heartbeat-toggle>
+                                    Show history
+                                </button>
+                            </div>
+                            <div class="heartbeat-history-content">
+                                {% if heartbeat_events %}
+                                    <table class="event-table">
+                                        <thead>
+                                        <tr>
+                                            <th>Timestamp</th>
+                                            <th>Status</th>
+                                            <th>Note</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        {% for hb_event in heartbeat_events %}
+                                            <tr>
+                                                <td>{{ hb_event.timestamp }}</td>
+                                                <td>{{ hb_event.get_status_display }}</td>
+                                                <td>{{ hb_event.note|default:"-" }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                        </tbody>
+                                    </table>
+                                {% else %}
+                                    <p>No heartbeat changes in this window.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% else %}
+                        <p>No heartbeat data received for this tray yet.</p>
                     {% endif %}
+                </article>
+            </div>
+            <div class="stats-grid">
+                <div>
+                    <h3>Total activations</h3>
+                    <p>{{ stats.total_activations }}</p>
                 </div>
+                <div>
+                    <h3>Avg. collection time</h3>
+                    <p>{{ stats.avg_duration|floatformat:2 }} hrs</p>
+                </div>
+                <div>
+                    <h3>Longest collection</h3>
+                    <p>{{ stats.longest_duration|floatformat:2 }} hrs</p>
+                </div>
+                <div>
+                    <h3>Utilization</h3>
+                    <p>{{ stats.utilization|floatformat:1 }}%</p>
+                </div>
+                {% if stats.open_duration %}
+                    <div>
+                        <h3>Ongoing collection</h3>
+                        <p>{{ stats.open_duration|floatformat:2 }} hrs</p>
+                    </div>
+                {% endif %}
             </div>
 
             <article class="panel">
                 <h2>Collection duration trend (minutes)</h2>
                 {% if activation_periods %}
                     <canvas id="trayHistoryChart"
-                            data-chart='{{ chart_data_json|escapejs }}'></canvas>
+                            class="tray-history-chart"
+                            data-chart="{{ chart_data_json|escape }}"></canvas>
                 {% else %}
                     <p>No completed collection sessions in this window.</p>
+                {% endif %}
+            </article>
+
+            <article class="panel">
+                <h2>Collection summary (minutes)</h2>
+                {% if summary_chart_data_json %}
+                    <canvas id="traySummaryChart"
+                            class="tray-history-chart"
+                            data-chart="{{ summary_chart_data_json|escape }}"></canvas>
+                {% else %}
+                    <p>Need at least one completed session to chart a summary.</p>
                 {% endif %}
             </article>
 

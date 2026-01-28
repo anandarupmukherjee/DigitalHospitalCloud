@@ -1,4 +1,7 @@
 (() => {
+    const scriptBase = (window.APP_BASE_PATH || '').replace(/\/$/, '');
+    const buildUrl = (path) => (scriptBase ? `${scriptBase}${path}` : path);
+
     const mapElement = document.getElementById('trayMap');
     if (!mapElement) {
         return;
@@ -16,6 +19,7 @@
 
     const trayListElement = document.getElementById('trayList');
     const filterForm = document.getElementById('trayFilters');
+    const heartbeatListElement = document.getElementById('heartbeatList');
 
     function getTrayKey(tray) {
         if (tray.key) {
@@ -23,6 +27,17 @@
         }
         const topic = tray.topic || 'global';
         return `${topic}::${tray.tray_id}`;
+    }
+
+    function formatTimestamp(value) {
+        if (!value) {
+            return null;
+        }
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) {
+            return null;
+        }
+        return parsed.toLocaleString();
     }
 
     function getLastOnTimestamp(tray) {
@@ -161,7 +176,7 @@
                 <div>
                     <strong>${tray.tray_id}</strong><br>
                     <small>${tray.location_label || 'Unknown location'}</small><br>
-                    <small>Last ON: ${lastOn ? new Date(lastOn).toLocaleString() : 'Unknown'}</small>
+                    <small>Last ON: ${lastOn ? formatTimestamp(lastOn) : 'Unknown'}</small>
                 </div>
                 <span class="status-pill status-${bucket}">
                     ${bucketLabel(bucket)}
@@ -171,6 +186,36 @@
                 </button>
             `;
             trayListElement.appendChild(item);
+        });
+    }
+
+    function renderHeartbeatList(records) {
+        if (!heartbeatListElement) {
+            return;
+        }
+        heartbeatListElement.innerHTML = '';
+        if (!records || !records.length) {
+            const empty = document.createElement('li');
+            empty.className = 'empty-state';
+            empty.textContent = heartbeatListElement.dataset.empty || 'No heartbeat data yet.';
+            heartbeatListElement.appendChild(empty);
+            return;
+        }
+        const sorted = [...records].sort((a, b) => {
+            return (a.tray_id || '').localeCompare(b.tray_id || '');
+        });
+        sorted.forEach((record) => {
+            const item = document.createElement('li');
+            const isAlive = Boolean(record.is_alive);
+            const lastSeen = record.last_seen_at ? formatTimestamp(record.last_seen_at) : null;
+            item.innerHTML = `
+                <span class="heartbeat-dot ${isAlive ? 'alive' : 'down'}"></span>
+                <div class="heartbeat-details">
+                    <strong>${record.tray_id || 'Unknown tray'}</strong>
+                    <small>Last seen: ${lastSeen || 'Never'}</small>
+                </div>
+            `;
+            heartbeatListElement.appendChild(item);
         });
     }
 
@@ -202,11 +247,12 @@
     }
 
     function refreshTrays() {
-        fetch('/api/tray-status/')
+        fetch(buildUrl('/api/tray-status/'))
             .then((response) => response.json())
             .then((data) => {
                 trayCache = data.trays || [];
                 applyFilterAndRender();
+                renderHeartbeatList(data.heartbeat && data.heartbeat.records ? data.heartbeat.records : []);
             })
             .catch((err) => console.error('Failed to load tray data', err));
     }

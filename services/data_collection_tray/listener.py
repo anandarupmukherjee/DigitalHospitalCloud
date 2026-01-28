@@ -7,7 +7,7 @@ from typing import Any, Dict
 
 import paho.mqtt.client as mqtt
 
-from services.data_storage.repository import record_tray_state
+from services.data_storage.repository import record_tray_heartbeat, record_tray_state
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +21,18 @@ class TrayMQTTListener:
         broker_host: str | None = None,
         broker_port: int | None = None,
         topic: str | None = None,
+        status_topic: str | None = None,
         keepalive: int = 60,
     ) -> None:
         self.broker_host = broker_host or os.environ.get("MQTT_BROKER_HOST", "broker.hivemq.com")
         self.broker_port = broker_port or int(os.environ.get("MQTT_BROKER_PORT", "1883"))
         self.topic = topic or os.environ.get("MQTT_TOPIC", "MET/hospital/sensors/#")
+        self.status_topic = status_topic or os.environ.get("MQTT_STATUS_TOPIC", "MET/hospital/status/#")
+        self.status_topic_base = None
+        if self.status_topic:
+            base = self.status_topic.split("#", 1)[0]
+            base = base.split("+", 1)[0]
+            self.status_topic_base = base.rstrip("/")
         self.keepalive = keepalive
 
         self.client = mqtt.Client()
@@ -39,12 +46,27 @@ class TrayMQTTListener:
 
     # MQTT callbacks -----------------------------------------------------
     def on_connect(self, client, userdata, flags, reason_code, properties=None):
-        logger.info("Connected to MQTT broker with result %s. Subscribing to %s", reason_code, self.topic)
+        logger.info(
+            "Connected to MQTT broker with result %s. Subscribing to %s + %s",
+            reason_code,
+            self.topic,
+            self.status_topic,
+        )
         client.subscribe(self.topic)
+        if self.status_topic:
+            client.subscribe(self.status_topic)
 
     def on_message(self, client, userdata, message):
         payload = self._deserialize_payload(message.payload)
-        tray_id = payload.get("tray_id") or self._tray_id_from_topic(message.topic)
+        topic = message.topic or ""
+        if self.status_topic and mqtt.topic_matches_sub(self.status_topic, topic):
+            self._handle_heartbeat(topic, payload)
+            return
+        self._handle_tray_status(topic, payload)
+
+    # Message handlers --------------------------------------------------
+    def _handle_tray_status(self, topic: str, payload: Dict[str, Any]) -> None:
+        tray_id = payload.get("tray_id") or self._tray_id_from_topic(topic)
         if not tray_id:
             logger.warning("Received message without tray_id: %s", payload)
             return
@@ -60,17 +82,32 @@ class TrayMQTTListener:
         )
         status_value = (payload.get("status") or "").lower()
         if status_value not in {"on", "off"}:
-            logger.debug("Ignoring non-status message on %s: %s", message.topic, payload)
+            logger.debug("Ignoring non-status message on %s: %s", topic, payload)
             return
         is_active = status_value == "on"
 
         record_tray_state(
             tray_id,
-            topic=message.topic,
+            topic=topic,
             location_label=location_label,
             latitude=_safe_float(latitude),
             longitude=_safe_float(longitude),
             is_active=is_active,
+            payload=payload,
+        )
+
+    def _handle_heartbeat(self, topic: str, payload: Dict[str, Any]) -> None:
+        tray_id = (
+            payload.get("tray_id")
+            or self._tray_id_from_status_topic(topic)
+            or self._tray_id_from_topic(topic)
+        )
+        if not tray_id:
+            logger.debug("Heartbeat without tray_id ignored (topic=%s payload=%s)", topic, payload)
+            return
+        record_tray_heartbeat(
+            tray_id,
+            topic=topic,
             payload=payload,
         )
 
@@ -96,7 +133,21 @@ class TrayMQTTListener:
         if not topic:
             return None
         cleaned = topic.strip("/")
-        return cleaned.replace("/", "-") if cleaned else None
+        if not cleaned:
+            return None
+        segments = [segment for segment in cleaned.split("/") if segment]
+        return segments[-1] if segments else None
+
+    def _tray_id_from_status_topic(self, topic: str | None) -> str | None:
+        if not topic or not self.status_topic_base:
+            return None
+        base = self.status_topic_base
+        if base and topic.startswith(f"{base}/"):
+            remainder = topic[len(base) + 1 :]
+            if not remainder:
+                return None
+            return remainder.split("/", 1)[0]
+        return None
 
 
 def _safe_float(value: Any) -> float | None:

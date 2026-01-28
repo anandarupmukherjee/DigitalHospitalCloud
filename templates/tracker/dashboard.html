@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Dashboard · Logistics Tracker{% endblock %}
 
@@ -24,6 +25,12 @@
                 Active for more than 24 hrs
             </label>
         </form>
+        <div class="heartbeat-panel">
+            <h2>Tray alive status</h2>
+            <ul class="heartbeat-list" id="heartbeatList" data-empty="No heartbeat data yet.">
+                <li>Loading heartbeat data…</li>
+            </ul>
+        </div>
     </div>
     <div class="map-container" id="trayMap"></div>
     <div class="panel">
@@ -32,5 +39,20 @@
             <li>Loading tray data…</li>
         </ul>
     </div>
+    <div class="panel dashboard-chart">
+        <h2>Collection times ({{ dashboard_summary_chart_label }})</h2>
+        {% if dashboard_summary_chart_json %}
+            <canvas id="dashboardSummaryChart"
+                    class="collection-summary-chart"
+                    data-chart="{{ dashboard_summary_chart_json|escape }}"></canvas>
+        {% else %}
+            <p>No completed sessions in this window.</p>
+        {% endif %}
+    </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="{% static 'vendor/chart.js/chart.umd.js' %}"></script>
+    <script src="{% static 'js/dashboard_charts.js' %}"></script>
 {% endblock %}
