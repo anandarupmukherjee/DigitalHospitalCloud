@@ -99,6 +99,13 @@
                             </div>
                             <div class="heartbeat-history-content">
                                 {% if heartbeat_events %}
+                                    {% if heartbeat_events_total %}
+                                        <div class="pagination-meta">
+                                            Showing
+                                            {{ heartbeat_events_page.start_index }}-{{ heartbeat_events_page.end_index }}
+                                            of {{ heartbeat_events_total }} events
+                                        </div>
+                                    {% endif %}
                                     <table class="event-table">
                                         <thead>
                                         <tr>
@@ -117,6 +124,19 @@
                                         {% endfor %}
                                         </tbody>
                                     </table>
+                                    {% if heartbeat_prev_url or heartbeat_next_url %}
+                                        <div class="pagination-controls">
+                                            {% if heartbeat_prev_url %}
+                                                <a class="ghost-btn" href="{{ heartbeat_prev_url }}">Newer</a>
+                                            {% endif %}
+                                            <span>
+                                                Page {{ heartbeat_events_page.number }} of {{ heartbeat_events_page.paginator.num_pages }}
+                                            </span>
+                                            {% if heartbeat_next_url %}
+                                                <a class="ghost-btn" href="{{ heartbeat_next_url }}">Older</a>
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
                                 {% else %}
                                     <p>No heartbeat changes in this window.</p>
                                 {% endif %}
@@ -150,27 +170,150 @@
                         <p>{{ stats.open_duration|floatformat:2 }} hrs</p>
                     </div>
                 {% endif %}
+                <div>
+                    <h3>Median collection</h3>
+                    <p>{{ stats.median_duration|floatformat:2 }} hrs</p>
+                </div>
+                <div>
+                    <h3>p90 collection</h3>
+                    <p>{{ stats.p90_duration|floatformat:2 }} hrs</p>
+                </div>
             </div>
 
-            <article class="panel">
-                <h2>Collection duration trend (minutes)</h2>
-                {% if activation_periods %}
-                    <canvas id="trayHistoryChart"
-                            class="tray-history-chart"
-                            data-chart="{{ chart_data_json|escape }}"></canvas>
-                {% else %}
-                    <p>No completed collection sessions in this window.</p>
-                {% endif %}
-            </article>
+            <div class="tray-chart-grid">
+                <article class="panel chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h2>Collection duration trend</h2>
+                            <p class="chart-subtitle">{{ range_label }}</p>
+                        </div>
+                        <button type="button"
+                                class="chart-info-btn"
+                                data-chart-info
+                                aria-label="Explain collection duration trend"
+                                aria-expanded="false"
+                                data-info-target="tray-duration-trend-info">i</button>
+                    </div>
+                    <p id="tray-duration-trend-info"
+                       class="chart-info-tip"
+                       hidden>
+                        Shows each collection cycle for this tray, highlighting median performance and outliers so you can spot spikes or regressions quickly.
+                    </p>
+                    {% if duration_trend_json %}
+                        <canvas id="trayDurationTrendChart"
+                                class="tray-history-chart"
+                                data-chart="{{ duration_trend_json|escape }}"></canvas>
+                    {% else %}
+                        <p>No activity recorded during this range.</p>
+                    {% endif %}
+                </article>
 
-            <article class="panel">
-                <h2>Collection summary (minutes)</h2>
-                {% if summary_chart_data_json %}
-                    <canvas id="traySummaryChart"
+                <article class="panel chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h2>Duration distribution</h2>
+                            <p class="chart-subtitle">{{ range_label }}</p>
+                        </div>
+                        <button type="button"
+                                class="chart-info-btn"
+                                data-chart-info
+                                aria-label="Explain duration distribution"
+                                aria-expanded="false"
+                                data-info-target="tray-duration-hist-info">i</button>
+                    </div>
+                    <p id="tray-duration-hist-info"
+                       class="chart-info-tip"
+                       hidden>
+                        Buckets of collection times with percentile markers to reveal whether most sessions behave consistently or if long tails dominate.
+                    </p>
+                    {% if duration_histogram_json %}
+                        <canvas id="trayDurationHistogram"
+                                class="tray-history-chart"
+                                data-chart="{{ duration_histogram_json|escape }}"></canvas>
+                    {% else %}
+                        <p>Need at least one completed session to chart this distribution.</p>
+                    {% endif %}
+                </article>
+
+                <article class="panel chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h2>Time-of-day impact</h2>
+                            <p class="chart-subtitle">{{ range_label }}</p>
+                        </div>
+                        <button type="button"
+                                class="chart-info-btn"
+                                data-chart-info
+                                aria-label="Explain time-of-day impact"
+                                aria-expanded="false"
+                                data-info-target="tray-hourly-info">i</button>
+                    </div>
+                    <p id="tray-hourly-info"
+                       class="chart-info-tip"
+                       hidden>
+                        Median durations grouped by hour highlight staffing or workflow shifts where this tray slows down or speeds up.
+                    </p>
+                    {% if hourly_distribution_json %}
+                        <canvas id="trayHourChart"
+                                class="tray-history-chart"
+                                data-chart="{{ hourly_distribution_json|escape }}"></canvas>
+                    {% else %}
+                        <p>Need at least one completed session to summarize time-of-day.</p>
+                    {% endif %}
+                </article>
+
+                <article class="panel chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h2>Cycle timeline</h2>
+                            <p class="chart-subtitle">{{ range_label }}</p>
+                        </div>
+                        <button type="button"
+                                class="chart-info-btn"
+                                data-chart-info
+                                aria-label="Explain cycle timeline"
+                                aria-expanded="false"
+                                data-info-target="tray-timeline-info">i</button>
+                    </div>
+                    <p id="tray-timeline-info"
+                       class="chart-info-tip"
+                       hidden>
+                        Gantt-style view of each activation shows how long trays waited end-to-end and makes delayed pickups obvious.
+                    </p>
+                    {% if timeline_json %}
+                        <canvas id="trayCycleTimeline"
+                                class="tray-history-chart"
+                                data-chart="{{ timeline_json|escape }}"></canvas>
+                    {% else %}
+                        <p>No completed sessions available for a timeline.</p>
+                    {% endif %}
+                </article>
+            </div>
+
+            <article class="panel chart-card">
+                <div class="chart-header">
+                    <div>
+                        <h2>Ongoing duration trend</h2>
+                        <p class="chart-subtitle">{{ range_label }}</p>
+                    </div>
+                    <button type="button"
+                            class="chart-info-btn"
+                            data-chart-info
+                            aria-label="Explain ongoing duration trend"
+                            aria-expanded="false"
+                            data-info-target="tray-queue-info">i</button>
+                </div>
+                <p id="tray-queue-info"
+                   class="chart-info-tip"
+                   hidden>
+                    Tracks how long the current or most recent activation has been running so you can intervene before it becomes an outage.
+                </p>
+                {% if queue_series_json %}
+                    <canvas id="trayQueueChart"
                             class="tray-history-chart"
-                            data-chart="{{ summary_chart_data_json|escape }}"></canvas>
+                            data-chart="{{ queue_series_json|escape }}"></canvas>
                 {% else %}
-                    <p>Need at least one completed session to chart a summary.</p>
+                    <p>No recent activity to visualize.</p>
                 {% endif %}
             </article>
 
@@ -228,6 +371,33 @@
                     <p>No events recorded in this window.</p>
                 {% endif %}
             </article>
+
+            {% if outlier_events %}
+                <article class="panel">
+                    <h2>Longest delays</h2>
+                    <p>Sessions above {{ outlier_threshold_minutes }} minutes are highlighted for follow-up.</p>
+                    <table class="event-table">
+                        <thead>
+                        <tr>
+                            <th>Activated</th>
+                            <th>Collected</th>
+                            <th>Duration (min)</th>
+                            <th>Location</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for entry in outlier_events %}
+                            <tr>
+                                <td>{{ entry.start }}</td>
+                                <td>{{ entry.end }}</td>
+                                <td>{{ entry.minutes|floatformat:1 }}</td>
+                                <td>{{ entry.location }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </article>
+            {% endif %}
         {% else %}
             <p>Please select a tray to view details.</p>
         {% endif %}
@@ -239,5 +409,6 @@
 
 {% block extra_js %}
     <script src="{% static 'vendor/chart.js/chart.umd.js' %}"></script>
+    <script src="{% static 'js/chart_info.js' %}"></script>
     <script src="{% static 'js/tray_history.js' %}"></script>
 {% endblock %}

@@ -28,6 +28,9 @@
             <th>Email</th>
             <th>Role</th>
             <th>Last login</th>
+            {% if request.user.is_superuser %}
+                <th>Actions</th>
+            {% endif %}
         </tr>
         </thead>
         <tbody>
@@ -37,9 +40,48 @@
                 <td>{{ user.email|default:"-" }}</td>
                 <td>{{ user|role_label }}</td>
                 <td>{{ user.last_login|default:"-" }}</td>
+                {% if request.user.is_superuser %}
+                    <td>
+                        {% if user.is_superuser %}
+                            <em>Superuser</em>
+                        {% else %}
+                            <div class="user-actions">
+                                <form method="post" class="inline-form user-role-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="update-role">
+                                    <input type="hidden" name="user_id" value="{{ user.id }}">
+                                    <label>
+                                        <span class="sr-only">Role for {{ user.username }}</span>
+                                        <select name="role">
+                                            {% for role_value, role_label in role_choices_list %}
+                                                <option value="{{ role_value }}"
+                                                        {% if user.current_role == role_value %}selected{% endif %}>
+                                                    {{ role_label }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </label>
+                                    <button type="submit" class="ghost-btn">Update</button>
+                                </form>
+                                <form method="post"
+                                      class="inline-form user-delete-form"
+                                      onsubmit="return confirm('Delete user {{ user.username }}? This cannot be undone.');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="delete-user">
+                                    <input type="hidden" name="user_id" value="{{ user.id }}">
+                                    <button type="submit" class="danger-btn">Delete</button>
+                                </form>
+                            </div>
+                        {% endif %}
+                    </td>
+                {% endif %}
             </tr>
         {% empty %}
-            <tr><td colspan="4">No users yet.</td></tr>
+            <tr>
+                <td colspan="{% if request.user.is_superuser %}5{% else %}4{% endif %}">
+                    No users yet.
+                </td>
+            </tr>
         {% endfor %}
         </tbody>
     </table>

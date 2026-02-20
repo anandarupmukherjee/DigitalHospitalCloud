@@ -1,12 +1,13 @@
 import json
-import math
 import os
 from datetime import timedelta
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.core.paginator import Paginator
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
@@ -15,9 +16,19 @@ from openpyxl import Workbook
 
 from .forms import TrayConfigForm, UserCreationWithRoleForm
 from .models import TrayEvent, TrayHeartbeat, TrayHeartbeatEvent, TrayStatus
+from .analytics import (
+    ActivationWindow,
+    compute_activation_window,
+    day_hour_matrix,
+    histogram_counts,
+    hourly_distribution,
+    outlier_threshold_minutes,
+    percentile,
+    queue_series,
+)
 from services.data_collection_tray.publisher import TrayConfigPublisher
 from services.data_storage.repository import record_tray_state
-from .utils import ROLE_CHOICES, user_is_manager
+from .utils import ROLE_CHOICES, assign_role, user_is_manager
 
 
 TRAY_HISTORY_RANGE_WINDOWS = {
@@ -35,22 +46,6 @@ def resolve_history_window(range_key: str):
     return range_key, label, delta
 
 
-def _percentile(sorted_values, fraction: float) -> float:
-    if not sorted_values:
-        return 0
-    if fraction <= 0:
-        return sorted_values[0]
-    if fraction >= 1:
-        return sorted_values[-1]
-    idx = (len(sorted_values) - 1) * fraction
-    lower = math.floor(idx)
-    upper = math.ceil(idx)
-    if lower == upper:
-        return sorted_values[int(idx)]
-    weight = idx - lower
-    return sorted_values[lower] * (1 - weight) + sorted_values[upper] * weight
-
-
 class ManagerRequiredMixin(UserPassesTestMixin):
     raise_exception = True
 
@@ -60,76 +55,254 @@ class ManagerRequiredMixin(UserPassesTestMixin):
 
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = "tracker/dashboard.html"
-    COLLECTION_WINDOW = timedelta(days=7)
+    DEFAULT_RANGE = "week"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["tray_statuses"] = TrayStatus.objects.all()
-        chart_payload = self._build_dashboard_collection_chart()
-        context["dashboard_summary_chart_label"] = f"last {self.COLLECTION_WINDOW.days} days"
-        context["dashboard_summary_chart_json"] = json.dumps(chart_payload) if chart_payload else ""
-        context["heartbeat_summary"] = self._build_heartbeat_summary()
-        context["heartbeat_stale_seconds"] = getattr(settings, "TRAY_HEARTBEAT_STALE_SECONDS", 5)
+        range_input = self.request.GET.get("range", self.DEFAULT_RANGE)
+        range_key, range_label, delta = resolve_history_window(range_input)
+        end_time = timezone.now()
+        start_time = end_time - delta
+        location_filter = self.request.GET.get("location", "").strip()
+
+        trays_qs = TrayStatus.objects.all()
+        if location_filter:
+            trays_qs = trays_qs.filter(location_label=location_filter)
+        trays = list(trays_qs.order_by("tray_id"))
+
+        histories = self._collect_tray_histories(trays, start_time, end_time)
+        completed_periods = self._flatten_completed_periods(histories)
+
+        subtitle = range_label
+        volume_chart = self._build_volume_chart(completed_periods, start_time, end_time, subtitle)
+        duration_trend_chart = self._build_duration_trend_chart(completed_periods, start_time, end_time, subtitle)
+        outlier_chart = self._build_outlier_chart(completed_periods, start_time, end_time, subtitle)
+        comparison_chart = self._build_tray_comparison(histories, subtitle)
+        scatter_chart = self._build_tray_scatter(histories, delta, subtitle)
+        heatmap_chart = self._build_heatmap(completed_periods, subtitle)
+        longest_events = self._build_longest_events(completed_periods)
+
+        context.update(
+            {
+                "tray_statuses": TrayStatus.objects.all(),
+                "heartbeat_summary": self._build_heartbeat_summary(),
+                "heartbeat_stale_seconds": getattr(settings, "TRAY_HEARTBEAT_STALE_SECONDS", 5),
+                "dashboard_range_key": range_key,
+                "dashboard_range_label": range_label,
+                "dashboard_range_choices": TRAY_HISTORY_RANGE_WINDOWS,
+                "dashboard_location_choices": self._location_choices(),
+                "selected_location": location_filter,
+                "volume_chart_json": json.dumps(volume_chart) if volume_chart else "",
+                "duration_trend_chart_json": json.dumps(duration_trend_chart) if duration_trend_chart else "",
+                "outlier_chart_json": json.dumps(outlier_chart) if outlier_chart else "",
+                "tray_comparison_chart_json": json.dumps(comparison_chart) if comparison_chart else "",
+                "tray_scatter_chart_json": json.dumps(scatter_chart) if scatter_chart else "",
+                "time_of_day_chart_json": json.dumps(heatmap_chart) if heatmap_chart else "",
+                "longest_events": longest_events,
+                "outlier_threshold_minutes": outlier_threshold_minutes(),
+            }
+        )
         return context
 
-    def _build_dashboard_collection_chart(self):
-        end_time = timezone.now()
-        start_time = end_time - self.COLLECTION_WINDOW
-        tray_points = []
-        trays = TrayStatus.objects.order_by("tray_id")
+    def _collect_tray_histories(self, trays, start_time, end_time):
+        histories = []
         for tray in trays:
-            events = list(
-                TrayEvent.objects.filter(tray=tray, timestamp__range=(start_time, end_time)).order_by("timestamp")
-            )
-            carry_in = (
-                TrayEvent.objects.filter(tray=tray, timestamp__lt=start_time)
-                .order_by("-timestamp")
-                .first()
-            )
-
-            last_on = None
-            if carry_in and carry_in.status == TrayEvent.STATUS_ON:
-                last_on = carry_in
-
-            duration_minutes = []
-            for event in events:
-                if event.status == TrayEvent.STATUS_ON:
-                    last_on = event
-                elif event.status == TrayEvent.STATUS_OFF and last_on:
-                    period_start = max(last_on.timestamp, start_time)
-                    if period_start >= event.timestamp:
-                        last_on = None
-                        continue
-                    duration = event.timestamp - period_start
-                    duration_minutes.append(duration.total_seconds() / 60)
-                    last_on = None
-
-            if not duration_minutes:
-                continue
-
-            sorted_minutes = sorted(duration_minutes)
-            tray_points.append(
+            window = compute_activation_window(tray, start_time, end_time)
+            completed_periods = [p for p in window.activation_periods if not p.get("is_open")]
+            durations = [p["duration_minutes"] for p in completed_periods]
+            sorted_minutes = sorted(durations)
+            histories.append(
                 {
-                    "tray_id": tray.tray_id,
-                    "avg": round(sum(sorted_minutes) / len(sorted_minutes), 2),
-                    "min": round(sorted_minutes[0], 2),
-                    "max": round(sorted_minutes[-1], 2),
-                    "q1": round(_percentile(sorted_minutes, 0.25), 2),
-                    "q3": round(_percentile(sorted_minutes, 0.75), 2),
+                    "tray": tray,
+                    "completed_periods": completed_periods,
+                    "durations": durations,
+                    "median": percentile(sorted_minutes, 0.5) if sorted_minutes else 0,
+                    "p90": percentile(sorted_minutes, 0.9) if sorted_minutes else 0,
+                    "count": len(durations),
+                    "total_active_minutes": sum(durations),
                 }
             )
+        return histories
 
-        if not tray_points:
+    def _flatten_completed_periods(self, histories):
+        periods = []
+        for entry in histories:
+            tray = entry["tray"]
+            location = tray.location_label or "Unknown"
+            for period in entry["completed_periods"]:
+                periods.append(
+                    {
+                        **period,
+                        "tray": tray,
+                        "tray_id": tray.tray_id,
+                        "location": location,
+                    }
+                )
+        return periods
+
+    def _window_dates(self, start_time, end_time):
+        dates = []
+        current = timezone.localtime(start_time).date()
+        end_date = timezone.localtime(end_time).date()
+        while current <= end_date:
+            dates.append(current)
+            current += timedelta(days=1)
+        return dates
+
+    def _build_volume_chart(self, periods, start_time, end_time, subtitle):
+        if not periods:
             return None
+        dates = self._window_dates(start_time, end_time)
+        volume_by_day = {date: {} for date in dates}
+        locations = set()
+        for period in periods:
+            local_end = timezone.localtime(period["end"])
+            day = local_end.date()
+            if day not in volume_by_day:
+                continue
+            location = period["location"]
+            locations.add(location)
+            volume_by_day[day][location] = volume_by_day[day].get(location, 0) + 1
+        if not locations:
+            return None
+        labels = [date.strftime("%b %d") for date in dates]
+        location_list = sorted(locations)
+        palette = ["#4b9cd3", "#ffad5c", "#6c5ce7", "#2ecc71", "#ff6b6b", "#1c3d5a"]
+        datasets = []
+        for idx, location in enumerate(location_list):
+            datasets.append(
+                {
+                    "label": location,
+                    "data": [volume_by_day[date].get(location, 0) for date in dates],
+                    "backgroundColor": palette[idx % len(palette)],
+                    "stack": "volume",
+                }
+            )
+        return {"labels": labels, "datasets": datasets, "subtitle": subtitle}
 
+    def _build_duration_trend_chart(self, periods, start_time, end_time, subtitle):
+        if not periods:
+            return None
+        dates = self._window_dates(start_time, end_time)
+        durations_by_day = {date: [] for date in dates}
+        for period in periods:
+            local_end = timezone.localtime(period["end"])
+            day = local_end.date()
+            if day in durations_by_day:
+                durations_by_day[day].append(period["duration_minutes"])
+        labels = [date.strftime("%b %d") for date in dates]
+        median = []
+        p90 = []
+        for date in dates:
+            durations = sorted(durations_by_day[date])
+            median.append(round(percentile(durations, 0.5), 2) if durations else 0)
+            p90.append(round(percentile(durations, 0.9), 2) if durations else 0)
+        if not any(median) and not any(p90):
+            return None
+        return {"labels": labels, "median": median, "p90": p90, "subtitle": subtitle}
+
+    def _build_outlier_chart(self, periods, start_time, end_time, subtitle):
+        if not periods:
+            return None
+        threshold = outlier_threshold_minutes()
+        dates = self._window_dates(start_time, end_time)
+        durations_by_day = {date: [] for date in dates}
+        for period in periods:
+            local_end = timezone.localtime(period["end"])
+            day = local_end.date()
+            if day in durations_by_day:
+                durations_by_day[day].append(period["duration_minutes"])
+        labels = [date.strftime("%b %d") for date in dates]
+        rates = []
+        numerators = []
+        denominators = []
+        for date in dates:
+            durations = durations_by_day[date]
+            denom = len(durations)
+            denominators.append(denom)
+            outliers = len([value for value in durations if value > threshold])
+            numerators.append(outliers)
+            rate = round(outliers / denom * 100, 2) if denom else 0
+            rates.append(rate)
+        if not any(denominators):
+            return None
         return {
-            "labels": [point["tray_id"] for point in tray_points],
-            "avg_minutes": [point["avg"] for point in tray_points],
-            "min_minutes": [point["min"] for point in tray_points],
-            "max_minutes": [point["max"] for point in tray_points],
-            "q1_minutes": [point["q1"] for point in tray_points],
-            "q3_minutes": [point["q3"] for point in tray_points],
+            "labels": labels,
+            "rates": rates,
+            "numerators": numerators,
+            "denominators": denominators,
+            "subtitle": subtitle,
         }
+
+    def _build_tray_comparison(self, histories, subtitle):
+        ranked = [entry for entry in histories if entry["count"]]
+        if not ranked:
+            return None
+        ranked.sort(key=lambda entry: entry["median"], reverse=True)
+        labels = [
+            f"{entry['tray'].tray_id} · {(entry['tray'].location_label or 'Unknown')}"
+            for entry in ranked
+        ]
+        return {
+            "labels": labels,
+            "median": [round(entry["median"], 2) for entry in ranked],
+            "p90": [round(entry["p90"], 2) for entry in ranked],
+            "counts": [entry["count"] for entry in ranked],
+            "subtitle": subtitle,
+        }
+
+    def _build_tray_scatter(self, histories, delta, subtitle):
+        window_minutes = delta.total_seconds() / 60 or 1
+        points = []
+        for entry in histories:
+            if not entry["count"]:
+                continue
+            utilization = (entry["total_active_minutes"] / window_minutes) * 100
+            points.append(
+                {
+                    "tray": entry["tray"].tray_id,
+                    "location": entry["tray"].location_label or "Unknown",
+                    "utilization": round(utilization, 2),
+                    "median": round(entry["median"], 2),
+                    "p90": round(entry["p90"], 2),
+                    "count": entry["count"],
+                }
+            )
+        if not points:
+            return None
+        return {"points": points, "subtitle": subtitle}
+
+    def _build_heatmap(self, periods, subtitle):
+        if not periods:
+            return None
+        matrix = day_hour_matrix(periods)
+        if not any(point["count"] for point in matrix):
+            return None
+        return {"points": matrix, "subtitle": subtitle}
+
+    def _build_longest_events(self, periods, limit=15):
+        longest = sorted(periods, key=lambda period: period["duration_minutes"], reverse=True)[:limit]
+        rows = []
+        for period in longest:
+            rows.append(
+                {
+                    "tray_id": period["tray_id"],
+                    "location": period["location"],
+                    "start": timezone.localtime(period["start"]),
+                    "end": timezone.localtime(period["end"]),
+                    "minutes": round(period["duration_minutes"], 2),
+                }
+            )
+        return rows
+
+    def _location_choices(self):
+        labels = (
+            TrayStatus.objects.exclude(location_label__isnull=True)
+            .exclude(location_label__exact="")
+            .values_list("location_label", flat=True)
+            .distinct()
+        )
+        return sorted(labels)
 
     def _build_heartbeat_summary(self):
         threshold = getattr(settings, "TRAY_HEARTBEAT_STALE_SECONDS", 5)
@@ -267,62 +440,14 @@ class TrayHistoryView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView):
         end_time = timezone.now()
         start_time = end_time - delta
 
-        events_qs = (
-            TrayEvent.objects.filter(tray=selected_tray, timestamp__range=(start_time, end_time))
-            .order_by("timestamp")
-            if selected_tray
-            else TrayEvent.objects.none()
-        )
-        events = list(events_qs)
-
-        carry_in_event = None
-        if selected_tray:
-            carry_in_event = (
-                TrayEvent.objects.filter(tray=selected_tray, timestamp__lt=start_time)
-                .order_by("-timestamp")
-                .first()
-            )
-
         activation_periods = []
-        last_on = None
-        if carry_in_event and carry_in_event.status == TrayEvent.STATUS_ON:
-            last_on = carry_in_event
+        events = []
         open_period = None
-        for event in events:
-            if event.status == TrayEvent.STATUS_ON:
-                last_on = event
-            elif event.status == TrayEvent.STATUS_OFF and last_on:
-                period_start = max(last_on.timestamp, start_time)
-                if period_start >= event.timestamp:
-                    last_on = None
-                    continue
-                duration = event.timestamp - period_start
-                activation_periods.append(
-                    {
-                        "start": period_start,
-                        "end": event.timestamp,
-                        "duration_hours": duration.total_seconds() / 3600,
-                        "duration_minutes": duration.total_seconds() / 60,
-                        "is_open": False,
-                        "started_before_window": last_on.timestamp < start_time,
-                    }
-                )
-                last_on = None
-
-        if last_on:
-            current_end = end_time
-            period_start = max(last_on.timestamp, start_time)
-            if current_end > period_start:
-                duration = current_end - period_start
-                open_period = {
-                    "start": period_start,
-                    "end": current_end,
-                    "duration_hours": duration.total_seconds() / 3600,
-                    "duration_minutes": duration.total_seconds() / 60,
-                    "is_open": True,
-                    "started_before_window": last_on.timestamp < start_time,
-                }
-                activation_periods.append(open_period)
+        if selected_tray:
+            window_data = compute_activation_window(selected_tray, start_time, end_time)
+            activation_periods = window_data.activation_periods
+            events = window_data.events
+            open_period = window_data.open_period
 
         completed_periods = [p for p in activation_periods if not p.get("is_open")]
         durations = [p["duration_hours"] for p in completed_periods]
@@ -333,22 +458,90 @@ class TrayHistoryView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView):
         window_hours = delta.total_seconds() / 3600
         utilization = (total_active_hours / window_hours * 100) if window_hours else 0
 
-        chart_payload = {
-            "labels": [p["end"].isoformat() for p in activation_periods],
-            "data": [round(p["duration_minutes"], 2) for p in activation_periods],
-        }
-
         duration_minutes = [p["duration_minutes"] for p in completed_periods]
-        summary_chart_payload = None
-        if duration_minutes:
-            sorted_minutes = sorted(duration_minutes)
-            summary_chart_payload = {
-                "avg_minutes": round(sum(sorted_minutes) / len(sorted_minutes), 2),
-                "min_minutes": round(sorted_minutes[0], 2),
-                "max_minutes": round(sorted_minutes[-1], 2),
-                "q1_minutes": round(_percentile(sorted_minutes, 0.25), 2),
-                "q3_minutes": round(_percentile(sorted_minutes, 0.75), 2),
+        sorted_minutes = sorted(duration_minutes)
+        median_duration = percentile(sorted_minutes, 0.5) if sorted_minutes else 0
+        p90_duration = percentile(sorted_minutes, 0.9) if sorted_minutes else 0
+        longest_minutes = max(duration_minutes) if duration_minutes else 0
+        threshold_minutes = outlier_threshold_minutes()
+
+        duration_trend_payload = None
+        if activation_periods:
+            duration_trend_payload = {
+                "subtitle": range_label,
+                "points": [
+                    {
+                        "start": period["start"].isoformat(),
+                        "end": period["end"].isoformat(),
+                        "minutes": round(period["duration_minutes"], 2),
+                        "is_open": period.get("is_open", False),
+                        "is_outlier": period["duration_minutes"] > threshold_minutes,
+                    }
+                    for period in activation_periods
+                ],
+                "median": round(median_duration, 2),
+                "threshold": threshold_minutes,
             }
+
+        histogram_payload = None
+        if duration_minutes:
+            histogram_payload = {
+                "subtitle": range_label,
+                "buckets": histogram_counts(duration_minutes),
+                "p50": round(median_duration, 2),
+                "p90": round(p90_duration, 2),
+                "max": round(longest_minutes, 2),
+            }
+
+        hourly_payload = None
+        hourly_stats = hourly_distribution(completed_periods)
+        if any(stat["count"] for stat in hourly_stats):
+            hourly_payload = {
+                "subtitle": range_label,
+                "hours": [stat["hour"] for stat in hourly_stats],
+                "median": [stat["median"] for stat in hourly_stats],
+                "counts": [stat["count"] for stat in hourly_stats],
+            }
+
+        timeline_payload = None
+        if completed_periods:
+            timeline_payload = {
+                "subtitle": range_label,
+                "window_start": start_time.isoformat(),
+                "window_end": end_time.isoformat(),
+                "labels": [
+                    timezone.localtime(period["start"]).strftime("%b %d %H:%M")
+                    for period in completed_periods
+                ],
+                "ranges": [
+                    {
+                        "start": period["start"].isoformat(),
+                        "end": period["end"].isoformat(),
+                        "minutes": round(period["duration_minutes"], 2),
+                        "is_outlier": period["duration_minutes"] > threshold_minutes,
+                    }
+                    for period in completed_periods
+                ],
+            }
+
+        queue_payload = None
+        queue_points = queue_series(events, end_time=end_time) if events else []
+        if queue_points:
+            queue_payload = {
+                "subtitle": range_label,
+                "points": queue_points,
+            }
+
+        outlier_rows = [
+            {
+                "start": timezone.localtime(period["start"]),
+                "end": timezone.localtime(period["end"]),
+                "minutes": round(period["duration_minutes"], 2),
+                "location": (selected_tray.location_label if selected_tray else "") or "Unknown",
+            }
+            for period in completed_periods
+            if period["duration_minutes"] > threshold_minutes
+        ]
 
         snapshot = None
         if selected_tray:
@@ -362,19 +555,42 @@ class TrayHistoryView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView):
                 "last_update": selected_tray.updated_at,
             }
         heartbeat_status = None
+        heartbeat_events_page = None
         heartbeat_events = []
+        heartbeat_events_total = 0
+        heartbeat_prev_url = None
+        heartbeat_next_url = None
         if selected_tray:
             heartbeat = (
                 TrayHeartbeat.objects.filter(tray_id=selected_tray.tray_id)
                 .order_by("-last_seen_at")
                 .first()
             )
-            heartbeat_events = list(
-                TrayHeartbeatEvent.objects.filter(
-                    heartbeat__tray_id=selected_tray.tray_id,
-                    timestamp__range=(start_time, end_time),
-                ).order_by("-timestamp")
-            )
+            heartbeat_events_qs = TrayHeartbeatEvent.objects.filter(
+                heartbeat__tray_id=selected_tray.tray_id,
+                timestamp__range=(start_time, end_time),
+            ).order_by("-timestamp")
+            heartbeat_page_size = getattr(settings, "TRAY_HEARTBEAT_PAGE_SIZE", 200)
+            heartbeat_paginator = Paginator(heartbeat_events_qs, heartbeat_page_size)
+            heartbeat_page_number = self.request.GET.get("heartbeat_page") or 1
+            heartbeat_events_page = heartbeat_paginator.get_page(heartbeat_page_number)
+            heartbeat_events = list(heartbeat_events_page)
+            heartbeat_events_total = heartbeat_paginator.count
+
+            def build_heartbeat_page_url(page_number: int) -> str:
+                params = {"range": range_key, "heartbeat_page": page_number}
+                if tray_param:
+                    params["tray"] = tray_param
+                return f"?{urlencode(params)}"
+
+            if heartbeat_events_page.has_previous():
+                heartbeat_prev_url = build_heartbeat_page_url(
+                    heartbeat_events_page.previous_page_number()
+                )
+            if heartbeat_events_page.has_next():
+                heartbeat_next_url = build_heartbeat_page_url(
+                    heartbeat_events_page.next_page_number()
+                )
             if heartbeat:
                 heartbeat_status = {
                     "tray_id": heartbeat.tray_id,
@@ -401,13 +617,24 @@ class TrayHistoryView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView):
                     "total_active_hours": total_active_hours,
                     "utilization": utilization,
                     "open_duration": open_period["duration_hours"] if open_period else 0,
+                    "median_duration": median_duration,
+                    "p90_duration": p90_duration,
                 },
                 "snapshot": snapshot,
                 "heartbeat_status": heartbeat_status,
                 "heartbeat_events": heartbeat_events,
+                "heartbeat_events_page": heartbeat_events_page,
+                "heartbeat_events_total": heartbeat_events_total,
+                "heartbeat_prev_url": heartbeat_prev_url,
+                "heartbeat_next_url": heartbeat_next_url,
                 "has_events": bool(events),
-                "chart_data_json": json.dumps(chart_payload),
-                "summary_chart_data_json": json.dumps(summary_chart_payload) if summary_chart_payload else "",
+                "outlier_threshold_minutes": threshold_minutes,
+                "duration_trend_json": json.dumps(duration_trend_payload) if duration_trend_payload else "",
+                "duration_histogram_json": json.dumps(histogram_payload) if histogram_payload else "",
+                "hourly_distribution_json": json.dumps(hourly_payload) if hourly_payload else "",
+                "timeline_json": json.dumps(timeline_payload) if timeline_payload else "",
+                "queue_series_json": json.dumps(queue_payload) if queue_payload else "",
+                "outlier_events": outlier_rows,
             }
         )
         return context
@@ -565,11 +792,21 @@ class UserManagementView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView)
         context = super().get_context_data(**kwargs)
         User = get_user_model()
         context["form"] = context.get("form") or UserCreationWithRoleForm()
-        context["users"] = User.objects.order_by("username")
+        users = list(User.objects.order_by("username"))
+        for user in users:
+            user.current_role = self._resolve_role_key(user)
+        context["users"] = users
         context["role_choices"] = dict(ROLE_CHOICES)
+        context["role_choices_list"] = ROLE_CHOICES
         return context
 
     def post(self, request, *args, **kwargs):
+        if request.user.is_superuser:
+            action = request.POST.get("action")
+            if action == "update-role":
+                return self._handle_role_change(request)
+            if action == "delete-user":
+                return self._handle_user_delete(request)
         form = UserCreationWithRoleForm(request.POST)
         if form.is_valid():
             user = form.save()
@@ -577,6 +814,49 @@ class UserManagementView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView)
             return redirect("user-management")
         context = self.get_context_data(form=form)
         return self.render_to_response(context)
+
+    def _handle_role_change(self, request):
+        user_id = request.POST.get("user_id")
+        role = request.POST.get("role")
+        User = get_user_model()
+        user = User.objects.filter(id=user_id).first()
+        if not user:
+            messages.error(request, "User not found.")
+            return redirect("user-management")
+        if user.is_superuser:
+            messages.error(request, "Cannot modify roles for superusers.")
+            return redirect("user-management")
+        valid_roles = dict(ROLE_CHOICES)
+        if role not in valid_roles:
+            messages.error(request, "Invalid role selection.")
+            return redirect("user-management")
+        assign_role(user, role)
+        messages.success(request, f"Updated role for {user.username} to {valid_roles[role]}.")
+        return redirect("user-management")
+
+    def _handle_user_delete(self, request):
+        user_id = request.POST.get("user_id")
+        User = get_user_model()
+        user = User.objects.filter(id=user_id).first()
+        if not user:
+            messages.error(request, "User not found.")
+            return redirect("user-management")
+        if user.is_superuser:
+            messages.error(request, "Cannot delete a superuser account.")
+            return redirect("user-management")
+        if user.id == request.user.id:
+            messages.error(request, "You cannot delete your own account.")
+            return redirect("user-management")
+        username = user.username
+        user.delete()
+        messages.success(request, f"Deleted user {username}.")
+        return redirect("user-management")
+
+    def _resolve_role_key(self, user):
+        for role_value, _ in ROLE_CHOICES:
+            if user.groups.filter(name=role_value).exists():
+                return role_value
+        return ""
 
 
 class ConfigureTraysView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView):

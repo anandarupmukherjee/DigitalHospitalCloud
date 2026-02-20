@@ -7,22 +7,46 @@
 <section class="dashboard-grid">
     <div class="panel filter-panel">
         <h2>Filter activity</h2>
+        <form method="get" class="range-filter-form">
+            <label>
+                Range
+                <select name="range">
+                    {% for key, choice in dashboard_range_choices.items %}
+                        <option value="{{ key }}" {% if key == dashboard_range_key %}selected{% endif %}>
+                            {{ choice.0 }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                Location
+                <select name="location">
+                    <option value="" {% if not selected_location %}selected{% endif %}>All locations</option>
+                    {% for location in dashboard_location_choices %}
+                        <option value="{{ location }}" {% if location == selected_location %}selected{% endif %}>
+                            {{ location }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button type="submit">Apply</button>
+        </form>
         <form id="trayFilters" class="filter-options">
             <label>
                 <input type="radio" name="activity_filter" value="active_now" checked>
-                Active now
+                <span>Active now</span>
             </label>
             <label>
                 <input type="radio" name="activity_filter" value="active_6h">
-                Active in last 6 hrs
+                <span>Active in last 6 hrs</span>
             </label>
             <label>
                 <input type="radio" name="activity_filter" value="active_12h">
-                Active in last 12 hrs
+                <span>Active in last 12 hrs</span>
             </label>
             <label>
                 <input type="radio" name="activity_filter" value="active_24_plus">
-                Active for more than 24 hrs
+                <span>Active for more than 24 hrs</span>
             </label>
         </form>
         <div class="heartbeat-panel">
@@ -39,20 +63,222 @@
             <li>Loading tray data…</li>
         </ul>
     </div>
-    <div class="panel dashboard-chart">
-        <h2>Collection times ({{ dashboard_summary_chart_label }})</h2>
-        {% if dashboard_summary_chart_json %}
-            <canvas id="dashboardSummaryChart"
-                    class="collection-summary-chart"
-                    data-chart="{{ dashboard_summary_chart_json|escape }}"></canvas>
+</section>
+
+<section class="chart-grid">
+    <article class="panel dashboard-chart chart-card">
+        <div class="chart-header">
+            <div>
+                <h2>Activations per day</h2>
+                <p class="chart-subtitle">{{ dashboard_range_label }}</p>
+            </div>
+            <button type="button"
+                    class="chart-info-btn"
+                    data-chart-info
+                    aria-label="Explain activations per day chart"
+                    aria-expanded="false"
+                    data-info-target="dashboard-volume-info">i</button>
+        </div>
+        <p id="dashboard-volume-info"
+           class="chart-info-tip"
+           hidden>
+            Stacked daily volumes show how demand shifts across trays and highlight surge periods that stress staffing.
+        </p>
+        {% if volume_chart_json %}
+            <canvas id="dashboardVolumeChart"
+                    data-chart="{{ volume_chart_json|escape }}"></canvas>
         {% else %}
-            <p>No completed sessions in this window.</p>
+            <p>No completed sessions in this range.</p>
         {% endif %}
-    </div>
+    </article>
+
+    <article class="panel dashboard-chart chart-card">
+        <div class="chart-header">
+            <div>
+                <h2>Collection duration trend</h2>
+                <p class="chart-subtitle">{{ dashboard_range_label }}</p>
+            </div>
+            <button type="button"
+                    class="chart-info-btn"
+                    data-chart-info
+                    aria-label="Explain collection duration trend chart"
+                    aria-expanded="false"
+                    data-info-target="dashboard-duration-info">i</button>
+        </div>
+        <p id="dashboard-duration-info"
+           class="chart-info-tip"
+           hidden>
+            Median vs p90 durations track typical performance versus bad days, giving early warning when long waits creep in.
+        </p>
+        {% if duration_trend_chart_json %}
+            <canvas id="dashboardDurationTrend"
+                    data-chart="{{ duration_trend_chart_json|escape }}"></canvas>
+        {% else %}
+            <p>No durations recorded during this range.</p>
+        {% endif %}
+    </article>
+
+    <article class="panel dashboard-chart chart-card">
+        <div class="chart-header">
+            <div>
+                <h2>Outlier rate</h2>
+                <p class="chart-subtitle">Above {{ outlier_threshold_minutes }} minutes · {{ dashboard_range_label }}</p>
+            </div>
+            <button type="button"
+                    class="chart-info-btn"
+                    data-chart-info
+                    aria-label="Explain outlier rate chart"
+                    aria-expanded="false"
+                    data-info-target="dashboard-outlier-info">i</button>
+        </div>
+        <p id="dashboard-outlier-info"
+           class="chart-info-tip"
+           hidden>
+            Percentage of activations breaching the SLA shows reliability trends and whether improvement efforts stick.
+        </p>
+        {% if outlier_chart_json %}
+            <canvas id="dashboardOutlierChart"
+                    data-chart="{{ outlier_chart_json|escape }}"></canvas>
+        {% else %}
+            <p>No activations available to calculate outlier rate.</p>
+        {% endif %}
+    </article>
+
+    <article class="panel dashboard-chart chart-card">
+        <div class="chart-header">
+            <div>
+                <h2>Tray comparison</h2>
+                <p class="chart-subtitle">{{ dashboard_range_label }}</p>
+            </div>
+            {% if tray_comparison_chart_json %}
+                <button type="button"
+                        class="chart-info-btn"
+                        data-chart-info
+                        aria-label="Explain tray comparison chart"
+                        aria-expanded="false"
+                        data-info-target="dashboard-comparison-info">i</button>
+            {% endif %}
+        </div>
+        <p id="dashboard-comparison-info"
+           class="chart-info-tip"
+           hidden>
+            Ranks trays by median or p90 duration so you can focus on the slowest lanes first.
+        </p>
+        {% if tray_comparison_chart_json %}
+            <button type="button"
+                    class="ghost-btn chart-toggle"
+                    data-toggle-chart="dashboardTrayComparison">
+                Show p90
+            </button>
+            <canvas id="dashboardTrayComparison"
+                    data-chart="{{ tray_comparison_chart_json|escape }}"></canvas>
+        {% else %}
+            <p>No tray completions to compare.</p>
+        {% endif %}
+    </article>
+
+    <article class="panel dashboard-chart chart-card">
+        <div class="chart-header">
+            <div>
+                <h2>Utilization vs duration</h2>
+                <p class="chart-subtitle">{{ dashboard_range_label }}</p>
+            </div>
+            <button type="button"
+                    class="chart-info-btn"
+                    data-chart-info
+                    aria-label="Explain utilization vs duration chart"
+                    aria-expanded="false"
+                    data-info-target="dashboard-scatter-info">i</button>
+        </div>
+        <p id="dashboard-scatter-info"
+           class="chart-info-tip"
+           hidden>
+            Scatter plot distinguishes trays that are busy but healthy from those with long waits, revealing where process or capacity fixes are needed.
+        </p>
+        {% if tray_scatter_chart_json %}
+            <canvas id="dashboardTrayScatter"
+                    data-chart="{{ tray_scatter_chart_json|escape }}"></canvas>
+        {% else %}
+            <p>Need at least one completed session per tray to chart utilization.</p>
+        {% endif %}
+    </article>
+
+    <article class="panel dashboard-chart chart-card">
+        <div class="chart-header">
+            <div>
+                <h2>Time-of-day heatmap</h2>
+                <p class="chart-subtitle">{{ dashboard_range_label }}</p>
+            </div>
+            <button type="button"
+                    class="chart-info-btn"
+                    data-chart-info
+                    aria-label="Explain time-of-day heatmap"
+                    aria-expanded="false"
+                    data-info-target="dashboard-heatmap-info">i</button>
+        </div>
+        <p id="dashboard-heatmap-info"
+           class="chart-info-tip"
+           hidden>
+            Heatmap surfaces the hours and weekdays where delays cluster so you can adjust staffing or routes.
+        </p>
+        {% if time_of_day_chart_json %}
+            <canvas id="dashboardHeatmap"
+                    data-chart="{{ time_of_day_chart_json|escape }}"></canvas>
+        {% else %}
+            <p>No time-of-day insights yet.</p>
+        {% endif %}
+    </article>
+
+    <article class="panel dashboard-chart chart-card">
+        <div class="chart-header">
+            <div>
+                <h2>Longest events</h2>
+                <p class="chart-subtitle">{{ dashboard_range_label }}</p>
+            </div>
+            <button type="button"
+                    class="chart-info-btn"
+                    data-chart-info
+                    aria-label="Explain longest events list"
+                    aria-expanded="false"
+                    data-info-target="dashboard-longest-info">i</button>
+        </div>
+        <p id="dashboard-longest-info"
+           class="chart-info-tip"
+           hidden>
+            Quick table of the worst delays in view so teams can review root causes and drill into tray details.
+        </p>
+        {% if longest_events %}
+            <table class="event-table">
+                <thead>
+                    <tr>
+                        <th>Tray</th>
+                        <th>Location</th>
+                        <th>Activated</th>
+                        <th>Collected</th>
+                        <th>Duration (min)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in longest_events %}
+                        <tr>
+                            <td>{{ event.tray_id }}</td>
+                            <td>{{ event.location }}</td>
+                            <td>{{ event.start }}</td>
+                            <td>{{ event.end }}</td>
+                            <td>{{ event.minutes|floatformat:1 }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No completed sessions during this range.</p>
+        {% endif %}
+    </article>
 </section>
 {% endblock %}
 
 {% block extra_js %}
     <script src="{% static 'vendor/chart.js/chart.umd.js' %}"></script>
+    <script src="{% static 'js/chart_info.js' %}"></script>
     <script src="{% static 'js/dashboard_charts.js' %}"></script>
 {% endblock %}

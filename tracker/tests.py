@@ -13,6 +13,7 @@ from openpyxl import load_workbook
 from services.data_collection_tray.listener import TrayMQTTListener
 from services.data_storage.repository import record_tray_heartbeat
 
+from .analytics import histogram_counts
 from .models import TrayEvent, TrayStatus
 
 
@@ -79,21 +80,25 @@ class TrayHistoryViewTests(TestCase):
         expected_minutes = (off_time - window_start).total_seconds() / 60
         self.assertAlmostEqual(period["duration_minutes"], expected_minutes, places=5)
 
-        chart_data = json.loads(response.context["chart_data_json"])
-        self.assertEqual(chart_data["data"], [round(expected_minutes, 2)])
+        trend_data = json.loads(response.context["duration_trend_json"])
+        self.assertEqual(len(trend_data["points"]), 1)
+        self.assertAlmostEqual(trend_data["points"][0]["minutes"], round(expected_minutes, 2))
+
+        histogram_data = json.loads(response.context["duration_histogram_json"])
+        total_sessions = sum(bucket["count"] for bucket in histogram_data["buckets"])
+        self.assertEqual(total_sessions, 1)
 
         parser = _CanvasDataParser()
         parser.feed(response.content.decode())
-        history_attr = parser.values.get("trayHistoryChart")
-        self.assertIsNotNone(history_attr)
-        self.assertNotIn("\\u0022", history_attr)
-        self.assertEqual(json.loads(history_attr), chart_data)
+        trend_attr = parser.values.get("trayDurationTrendChart")
+        self.assertIsNotNone(trend_attr)
+        self.assertNotIn("\\u0022", trend_attr)
+        self.assertEqual(json.loads(trend_attr), trend_data)
 
-        summary_context = json.loads(response.context["summary_chart_data_json"])
-        summary_attr = parser.values.get("traySummaryChart")
-        self.assertIsNotNone(summary_attr)
-        self.assertNotIn("\\u0022", summary_attr)
-        self.assertEqual(json.loads(summary_attr), summary_context)
+        histogram_attr = parser.values.get("trayDurationHistogram")
+        self.assertIsNotNone(histogram_attr)
+        self.assertNotIn("\\u0022", histogram_attr)
+        self.assertEqual(json.loads(histogram_attr), histogram_data)
 
     def test_delete_tray_removes_records(self):
         now = timezone.now()
@@ -184,18 +189,35 @@ class DashboardViewTests(TestCase):
             response = self.client.get(reverse("dashboard"))
 
         self.assertEqual(response.status_code, 200)
-        chart_json = response.context["dashboard_summary_chart_json"]
-        self.assertTrue(chart_json)
-        chart_data = json.loads(chart_json)
-        self.assertEqual(chart_data["labels"], ["TRAY-A", "TRAY-B"])
-        self.assertEqual(len(chart_data["avg_minutes"]), 2)
+        volume_json = response.context["volume_chart_json"]
+        self.assertTrue(volume_json)
+        volume_data = json.loads(volume_json)
+        self.assertTrue(volume_data["datasets"][0]["data"])
+
+        comparison_json = response.context["tray_comparison_chart_json"]
+        self.assertTrue(comparison_json)
+        comparison_data = json.loads(comparison_json)
+        self.assertEqual(len(comparison_data["labels"]), 2)
 
         parser = _CanvasDataParser()
         parser.feed(response.content.decode())
-        canvas_value = parser.values.get("dashboardSummaryChart")
-        self.assertIsNotNone(canvas_value)
-        self.assertNotIn("\\u0022", canvas_value)
-        self.assertEqual(json.loads(canvas_value), chart_data)
+        volume_attr = parser.values.get("dashboardVolumeChart")
+        self.assertIsNotNone(volume_attr)
+        self.assertEqual(json.loads(volume_attr), volume_data)
+
+        comparison_attr = parser.values.get("dashboardTrayComparison")
+        self.assertIsNotNone(comparison_attr)
+        self.assertEqual(json.loads(comparison_attr), comparison_data)
+
+
+class AnalyticsTests(SimpleTestCase):
+    def test_histogram_counts(self):
+        durations = [10, 35, 80, 260]
+        buckets = histogram_counts(durations)
+        self.assertEqual(buckets[0]["count"], 1)
+        self.assertEqual(buckets[1]["count"], 1)
+        self.assertEqual(buckets[2]["count"], 1)
+        self.assertEqual(buckets[-1]["count"], 1)
 
 
 class TrayStatusDataViewTests(TestCase):
