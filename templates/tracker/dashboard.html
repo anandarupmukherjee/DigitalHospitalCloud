@@ -29,6 +29,13 @@
                     {% endfor %}
                 </select>
             </label>
+            <label class="form-checkbox">
+                <input type="checkbox"
+                       name="ignore_weekends"
+                       value="1"
+                       {% if ignore_weekends %}checked{% endif %}>
+                <span>Ignore weekends</span>
+            </label>
             <button type="submit">Apply</button>
         </form>
         <form id="trayFilters" class="filter-options">
@@ -55,13 +62,28 @@
                 <li>Loading heartbeat data…</li>
             </ul>
         </div>
+        <div class="map-visual-panel">
+            <h2>Map options</h2>
+            <label>
+                Map style
+                <select id="mapThemeSelect">
+                    <option value="standard" selected>Standard</option>
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                    <option value="satellite">Satellite</option>
+                </select>
+            </label>
+            <small class="map-option-hint">Choose a base layer that best suits your environment.</small>
+        </div>
     </div>
-    <div class="map-container" id="trayMap"></div>
-    <div class="panel">
-        <h2>Tray Status</h2>
-        <ul class="tray-list" id="trayList" data-empty="No trays found for this filter.">
-            <li>Loading tray data…</li>
-        </ul>
+    <div class="map-panel">
+        <div class="map-container" id="trayMap"></div>
+        <div class="tray-status-overlay">
+            <h2>Tray status</h2>
+            <ul class="tray-list" id="trayList" data-empty="No trays found for this filter.">
+                <li>Loading tray data…</li>
+            </ul>
+        </div>
     </div>
 </section>
 

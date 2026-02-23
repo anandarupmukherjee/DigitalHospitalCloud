@@ -65,18 +65,26 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         start_time = end_time - delta
         location_filter = self.request.GET.get("location", "").strip()
 
+        ignore_weekends = self.request.GET.get("ignore_weekends") == "1"
+
         trays_qs = TrayStatus.objects.all()
         if location_filter:
             trays_qs = trays_qs.filter(location_label=location_filter)
         trays = list(trays_qs.order_by("tray_id"))
 
-        histories = self._collect_tray_histories(trays, start_time, end_time)
+        histories = self._collect_tray_histories(trays, start_time, end_time, ignore_weekends=ignore_weekends)
         completed_periods = self._flatten_completed_periods(histories)
 
-        subtitle = range_label
-        volume_chart = self._build_volume_chart(completed_periods, start_time, end_time, subtitle)
-        duration_trend_chart = self._build_duration_trend_chart(completed_periods, start_time, end_time, subtitle)
-        outlier_chart = self._build_outlier_chart(completed_periods, start_time, end_time, subtitle)
+        subtitle = f"{range_label} (weekdays only)" if ignore_weekends else range_label
+        volume_chart = self._build_volume_chart(
+            completed_periods, start_time, end_time, subtitle, ignore_weekends=ignore_weekends
+        )
+        duration_trend_chart = self._build_duration_trend_chart(
+            completed_periods, start_time, end_time, subtitle, ignore_weekends=ignore_weekends
+        )
+        outlier_chart = self._build_outlier_chart(
+            completed_periods, start_time, end_time, subtitle, ignore_weekends=ignore_weekends
+        )
         comparison_chart = self._build_tray_comparison(histories, subtitle)
         scatter_chart = self._build_tray_scatter(histories, delta, subtitle)
         heatmap_chart = self._build_heatmap(completed_periods, subtitle)
@@ -92,6 +100,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                 "dashboard_range_choices": TRAY_HISTORY_RANGE_WINDOWS,
                 "dashboard_location_choices": self._location_choices(),
                 "selected_location": location_filter,
+                "ignore_weekends": ignore_weekends,
                 "volume_chart_json": json.dumps(volume_chart) if volume_chart else "",
                 "duration_trend_chart_json": json.dumps(duration_trend_chart) if duration_trend_chart else "",
                 "outlier_chart_json": json.dumps(outlier_chart) if outlier_chart else "",
@@ -104,11 +113,22 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         )
         return context
 
-    def _collect_tray_histories(self, trays, start_time, end_time):
+    def _is_weekend(self, dt):
+        if not dt:
+            return False
+        local_dt = timezone.localtime(dt)
+        return local_dt.weekday() >= 5
+
+    def _collect_tray_histories(self, trays, start_time, end_time, *, ignore_weekends=False):
         histories = []
         for tray in trays:
             window = compute_activation_window(tray, start_time, end_time)
-            completed_periods = [p for p in window.activation_periods if not p.get("is_open")]
+            activation_periods = window.activation_periods
+            if ignore_weekends:
+                activation_periods = [
+                    period for period in activation_periods if not self._is_weekend(period.get("end"))
+                ]
+            completed_periods = [p for p in activation_periods if not p.get("is_open")]
             durations = [p["duration_minutes"] for p in completed_periods]
             sorted_minutes = sorted(durations)
             histories.append(
@@ -140,50 +160,61 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                 )
         return periods
 
-    def _window_dates(self, start_time, end_time):
+    def _window_dates(self, start_time, end_time, *, ignore_weekends=False):
         dates = []
         current = timezone.localtime(start_time).date()
         end_date = timezone.localtime(end_time).date()
         while current <= end_date:
-            dates.append(current)
+            if not (ignore_weekends and current.weekday() >= 5):
+                dates.append(current)
             current += timedelta(days=1)
+        if not dates:
+            current = timezone.localtime(start_time).date()
+            while current <= end_date:
+                dates.append(current)
+                current += timedelta(days=1)
         return dates
 
-    def _build_volume_chart(self, periods, start_time, end_time, subtitle):
+    def _build_volume_chart(self, periods, start_time, end_time, subtitle, *, ignore_weekends=False):
         if not periods:
             return None
-        dates = self._window_dates(start_time, end_time)
+        dates = self._window_dates(start_time, end_time, ignore_weekends=ignore_weekends)
         volume_by_day = {date: {} for date in dates}
-        locations = set()
+        tray_locations = {}
+        trays_present = set()
         for period in periods:
             local_end = timezone.localtime(period["end"])
             day = local_end.date()
             if day not in volume_by_day:
                 continue
-            location = period["location"]
-            locations.add(location)
-            volume_by_day[day][location] = volume_by_day[day].get(location, 0) + 1
-        if not locations:
+            tray_id = period.get("tray_id")
+            if not tray_id:
+                continue
+            trays_present.add(tray_id)
+            tray_locations.setdefault(tray_id, period.get("location") or "Unknown")
+            volume_by_day[day][tray_id] = volume_by_day[day].get(tray_id, 0) + 1
+        if not trays_present:
             return None
         labels = [date.strftime("%b %d") for date in dates]
-        location_list = sorted(locations)
+        tray_list = sorted(trays_present)
         palette = ["#4b9cd3", "#ffad5c", "#6c5ce7", "#2ecc71", "#ff6b6b", "#1c3d5a"]
         datasets = []
-        for idx, location in enumerate(location_list):
+        for idx, tray_id in enumerate(tray_list):
+            location_label = tray_locations.get(tray_id, "Unknown")
             datasets.append(
                 {
-                    "label": location,
-                    "data": [volume_by_day[date].get(location, 0) for date in dates],
+                    "label": f"{tray_id} ({location_label})",
+                    "data": [volume_by_day[date].get(tray_id, 0) for date in dates],
                     "backgroundColor": palette[idx % len(palette)],
                     "stack": "volume",
                 }
             )
         return {"labels": labels, "datasets": datasets, "subtitle": subtitle}
 
-    def _build_duration_trend_chart(self, periods, start_time, end_time, subtitle):
+    def _build_duration_trend_chart(self, periods, start_time, end_time, subtitle, *, ignore_weekends=False):
         if not periods:
             return None
-        dates = self._window_dates(start_time, end_time)
+        dates = self._window_dates(start_time, end_time, ignore_weekends=ignore_weekends)
         durations_by_day = {date: [] for date in dates}
         for period in periods:
             local_end = timezone.localtime(period["end"])
@@ -201,11 +232,11 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             return None
         return {"labels": labels, "median": median, "p90": p90, "subtitle": subtitle}
 
-    def _build_outlier_chart(self, periods, start_time, end_time, subtitle):
+    def _build_outlier_chart(self, periods, start_time, end_time, subtitle, *, ignore_weekends=False):
         if not periods:
             return None
         threshold = outlier_threshold_minutes()
-        dates = self._window_dates(start_time, end_time)
+        dates = self._window_dates(start_time, end_time, ignore_weekends=ignore_weekends)
         durations_by_day = {date: [] for date in dates}
         for period in periods:
             local_end = timezone.localtime(period["end"])
@@ -240,7 +271,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             return None
         ranked.sort(key=lambda entry: entry["median"], reverse=True)
         labels = [
-            f"{entry['tray'].tray_id} · {(entry['tray'].location_label or 'Unknown')}"
+            f"{entry['tray'].tray_id} ({entry['tray'].location_label or 'Unknown'})"
             for entry in ranked
         ]
         return {

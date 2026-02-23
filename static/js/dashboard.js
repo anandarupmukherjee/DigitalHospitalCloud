@@ -7,10 +7,37 @@
         return;
     }
 
-    const map = L.map('trayMap').setView([0, 0], 2);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+    const tileLayers = {
+        standard: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }),
+        light: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors & CARTO',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }),
+        dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors & CARTO',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }),
+        satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics',
+            maxZoom: 19
+        })
+    };
+
+    const map = L.map('trayMap', {
+        worldCopyJump: false,
+        maxBounds: [
+            [-85, -180],
+            [85, 180]
+        ],
+        maxBoundsViscosity: 1.0
+    }).setView([0, 0], 2);
+    let baseLayer = tileLayers.standard;
+    baseLayer.addTo(map);
+
 
     const markers = new Map();
     let shouldFitBounds = true;
@@ -20,6 +47,7 @@
     const trayListElement = document.getElementById('trayList');
     const filterForm = document.getElementById('trayFilters');
     const heartbeatListElement = document.getElementById('heartbeatList');
+    const themeSelect = document.getElementById('mapThemeSelect');
 
     function getTrayKey(tray) {
         if (tray.key) {
@@ -240,6 +268,7 @@
         }
     }
 
+
     function applyFilterAndRender() {
         const filtered = trayCache.filter(matchesFilter);
         renderPanel(filtered);
@@ -277,6 +306,20 @@
             currentFilter = event.target.value;
             shouldFitBounds = true;
             applyFilterAndRender();
+        });
+    }
+
+    if (themeSelect) {
+        themeSelect.addEventListener('change', (event) => {
+            const nextLayer = tileLayers[event.target.value] || tileLayers.standard;
+            if (nextLayer === baseLayer) {
+                return;
+            }
+            if (baseLayer) {
+                map.removeLayer(baseLayer);
+            }
+            baseLayer = nextLayer;
+            baseLayer.addTo(map);
         });
     }
 })();

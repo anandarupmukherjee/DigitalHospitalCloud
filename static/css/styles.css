@@ -90,21 +90,65 @@ body {
 
 .dashboard-grid {
     display: grid;
-    grid-template-columns: minmax(260px, 320px) 2fr 1fr;
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
     grid-gap: 1rem;
-    align-items: start;
+    align-items: stretch;
+    min-height: 520px;
+    grid-auto-rows: 1fr;
 }
 
 .filter-panel {
-    grid-row: span 2;
     position: sticky;
     top: 1rem;
+    align-self: stretch;
 }
 
 .filter-panel .heartbeat-panel {
     margin-top: 1.5rem;
     border-top: 1px solid #e1e4ea;
     padding-top: 1rem;
+}
+
+.map-visual-panel {
+    margin-top: 1.5rem;
+    border-top: 1px solid #e1e4ea;
+    padding-top: 1rem;
+}
+
+.map-visual-panel label {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.9rem;
+    color: #4f5d6c;
+    font-weight: 600;
+    gap: 0.35rem;
+    margin-bottom: 0.75rem;
+}
+
+.map-visual-panel select {
+    border: 1px solid #cfd5de;
+    border-radius: 6px;
+    padding: 0.4rem 0.5rem;
+    background: #fff;
+    font-size: 0.95rem;
+}
+
+.heatmap-toggle {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+}
+
+.heatmap-toggle input {
+    width: 18px;
+    height: 18px;
+}
+
+.map-option-hint {
+    display: block;
+    font-size: 0.8rem;
+    color: #708090;
 }
 
 .range-filter-form {
@@ -143,6 +187,20 @@ body {
 
 .range-filter-form button:hover {
     background: #12273a;
+}
+
+.form-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #2f3945;
+    font-weight: 600;
+}
+
+.form-checkbox input {
+    width: 18px;
+    height: 18px;
 }
 
 .filter-options {
@@ -200,11 +258,44 @@ body {
     border-color: #1c3d5a;
 }
 
+.map-panel {
+    position: relative;
+    min-height: 520px;
+    height: 100%;
+    width: 100%;
+    display: flex;
+    align-items: stretch;
+}
+
 .map-container {
-    height: 520px;
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    width: 100%;
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.tray-status-overlay {
+    position: absolute;
+    bottom: 1.5rem;
+    right: 1rem;
+    width: 260px;
+    max-height: 65%;
+    overflow-y: auto;
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 12px;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.2);
+    padding: 1rem;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    backdrop-filter: blur(6px);
+    pointer-events: auto;
+    z-index: 999;
+}
+
+.tray-status-overlay h2 {
+    margin-top: 0;
 }
 
 .dashboard-chart {
@@ -336,6 +427,7 @@ body {
     list-style: none;
     padding: 0;
     margin: 0;
+    pointer-events: auto;
 }
 
 .tray-list li {
