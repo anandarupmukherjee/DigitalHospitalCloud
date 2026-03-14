@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import TrayEvent, TrayStatus
+from .models import TrayEvent, TrayHeartbeat, TrayHeartbeatEvent, TrayStatus
 
 
 @admin.register(TrayStatus)
@@ -24,3 +24,16 @@ class TrayEventAdmin(admin.ModelAdmin):
     list_display = ("tray", "status", "timestamp", "topic")
     list_filter = ("status", "topic")
     search_fields = ("tray__tray_id", "topic")
+
+
+@admin.register(TrayHeartbeat)
+class TrayHeartbeatAdmin(admin.ModelAdmin):
+    list_display = ("tray_id", "topic", "last_seen_at", "updated_at")
+    search_fields = ("tray_id", "topic")
+
+
+@admin.register(TrayHeartbeatEvent)
+class TrayHeartbeatEventAdmin(admin.ModelAdmin):
+    list_display = ("heartbeat", "status", "timestamp", "note")
+    list_filter = ("status",)
+    search_fields = ("heartbeat__tray_id", "note")

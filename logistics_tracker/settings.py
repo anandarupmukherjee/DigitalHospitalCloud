@@ -35,6 +35,12 @@ if allowed_hosts:
 else:
     ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
+FORCE_SCRIPT_NAME = os.getenv('DJANGO_FORCE_SCRIPT_NAME')
+if FORCE_SCRIPT_NAME:
+    FORCE_SCRIPT_NAME = FORCE_SCRIPT_NAME.rstrip('/') or '/'
+    USE_X_FORWARDED_HOST = True
+    USE_X_FORWARDED_PORT = True
+
 
 # Application definition
 
@@ -50,6 +56,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -123,13 +130,25 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+if FORCE_SCRIPT_NAME:
+    STATIC_URL = f"{FORCE_SCRIPT_NAME.rstrip('/')}{STATIC_URL}"
 
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 LOGIN_URL = 'login'
+
+# Alert + notification configuration
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+TRAY_ALERT_INTERVAL_MINUTES = int(os.getenv("TRAY_ALERT_INTERVAL_MINUTES", "30"))
+
+# Heartbeat / status configuration
+TRAY_HEARTBEAT_STALE_SECONDS = int(os.getenv("TRAY_HEARTBEAT_STALE_SECONDS", "5"))
+DEFAULT_MQTT_STATUS_TOPIC = os.getenv("MQTT_STATUS_TOPIC", "MET/hospital/status/#")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

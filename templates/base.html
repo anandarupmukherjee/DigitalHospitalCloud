@@ -60,6 +60,9 @@
     {% endif %}
     {% block content %}{% endblock %}
 </main>
+<script>
+    window.APP_BASE_PATH = "{{ request.META.SCRIPT_NAME|default:'' }}";
+</script>
 <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
 <script src="{% static 'js/dashboard.js' %}"></script>
 {% block extra_js %}{% endblock %}

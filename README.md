@@ -65,7 +65,7 @@ Logistics_Sample_Tracker/
    ```bash
    docker compose up --build
    ```
-   Compose now launches two services: `web` (Gunicorn serving Django) and `listener` (runs `python manage.py run_tray_listener`). The shared entrypoint applies migrations before either service starts; only the web service runs `collectstatic`. Static files are mounted to a named volume so they persist between rebuilds.
+   Compose now launches three services: `web` (Gunicorn serving Django), `listener` (runs `python manage.py run_tray_listener`), and `notifier` (runs `python manage.py notify_active_trays`). The shared entrypoint applies migrations before any service starts; only the web service runs `collectstatic`. Static files are mounted to a named volume so they persist between rebuilds.
 3. Visit [http://localhost:8000](http://localhost:8000) in your browser. Use `Ctrl+C` to stop the stack or `docker compose down` to tear it down completely.
 
 ### Data collection sensor firmware
@@ -94,3 +94,18 @@ Messages should be JSON and are expected to contain at least a `tray_id` plus op
 ```
 
 Each update is stored in the `TrayStatus` model along with activation/deactivation timestamps and also logged in `TrayEvent` for detailed history. The dashboard polls `/api/tray-status/` every five seconds and updates the map markers accordingly, while the Tray Details page surfaces historical analytics for operations managers. User management is restricted to the Manager role, whereas Staff accounts are limited to the dashboard view.
+
+### Telegram tray alerts
+
+To keep operations updated, a notifier now posts to a Telegram channel whenever trays stay active. Recommended flow:
+
+1. Create a Telegram channel such as `@logistics_tray_alerts`, invite your stakeholders, and add your bot as an administrator so it can post updates.
+2. Create a bot via [@BotFather](https://t.me/BotFather) and grab the token plus the channel chat ID (prefix public channels with `@` or use the numeric ID for private channels).
+3. Set these variables in `.env` (or your deployment secrets):
+   ```
+   TELEGRAM_BOT_TOKEN=123456:ABC...
+   TELEGRAM_CHAT_ID=@logistics_tray_alerts
+   TRAY_ALERT_INTERVAL_MINUTES=30
+   ```
+   `TRAY_ALERT_INTERVAL_MINUTES` is optional (defaults to 30 minutes).
+4. `docker compose up -d notifier` (already part of `docker compose up`) runs `python manage.py notify_active_trays`, which evaluates active trays every minute and posts a reminder message every 30 minutes until the tray deactivates.

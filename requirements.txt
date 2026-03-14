@@ -1,3 +1,6 @@
 Django>=5.2,<6.0
 paho-mqtt>=2.1
 gunicorn>=21.2
+whitenoise>=6.7
+requests>=2.31
+openpyxl>=3.1
