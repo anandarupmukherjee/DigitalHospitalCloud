@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digital Hospitals</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #11192c;
+      --card: #152338;
+      --text: #e7eefc;
+      --muted: #8ea0c6;
+      --accent: #50e3c2;
+      --danger: #ff7b7b;
+      --warn: #ffd166;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: radial-gradient(120% 120% at 10% 20%, rgba(80,227,194,0.08), transparent 50%), radial-gradient(100% 100% at 80% 0%, rgba(255,255,255,0.06), transparent 40%), var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 2rem 1.5rem 1rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 { margin: 0; letter-spacing: -0.02em; }
+    .subtitle { color: var(--muted); margin-top: 0.4rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+      padding: 1rem 1.5rem 3rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 16px;
+      padding: 1.25rem;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .card h2 { margin: 0; font-size: 1.1rem; }
+    .desc { color: var(--muted); margin: 0; font-size: 0.95rem; min-height: 1.5em; }
+    .meta { display: flex; gap: 0.5rem; flex-wrap: wrap; font-size: 0.9rem; color: var(--muted); }
+    .badge {
+      background: rgba(255,255,255,0.05);
+      padding: 0.2rem 0.6rem;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-weight: 600;
+    }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      box-shadow: 0 0 0 4px rgba(80,227,194,0.15);
+    }
+    .dot.up { background: var(--accent); }
+    .dot.down { background: var(--danger); box-shadow: 0 0 0 4px rgba(255,123,123,0.15); }
+    .dot.warn { background: var(--warn); box-shadow: 0 0 0 4px rgba(255,209,102,0.15); }
+    .actions { display: flex; gap: 0.75rem; }
+    a.btn, button.btn {
+      flex: 1;
+      text-align: center;
+      padding: 0.75rem;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.08s ease, box-shadow 0.15s ease;
+    }
+    a.btn:hover, button.btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    }
+    .btn.primary { background: linear-gradient(135deg, #50e3c2, #3ab6a1); color: #0a0f1c; }
+    footer {
+      text-align: center;
+      color: var(--muted);
+      padding-bottom: 2rem;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Digital Hospitals</h1>
+    <p class="subtitle">Links are driven by <code>apps.yaml</code>. Status comes from Docker.</p>
+  </header>
+
+  <div class="grid">
+    {% for app in apps %}
+    <div class="card" data-app="{{ app.id }}">
+      <div class="status" id="status-{{ app.id }}">
+        <span class="dot warn"></span>
+        <span class="label">Checking...</span>
+      </div>
+      <h2>{{ app.name }}</h2>
+      <p class="desc">{{ app.description }}</p>
+      <div class="meta">
+        {% if app.port %}<span class="badge">Port {{ app.port }}</span>{% endif %}
+        {% if app.path %}<span class="badge">{{ app.path }}</span>{% endif %}
+        {% if app.container %}<span class="badge">Container: {{ app.container }}</span>{% endif %}
+      </div>
+      <div class="actions">
+        <a class="btn primary" href="{{ app.url }}" target="_blank" rel="noopener">Open</a>
+        <button class="btn" onclick="refreshOne('{{ app.id }}')">Refresh</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <footer>Powered by Flask + Docker SDK</footer>
+
+  <script>
+    const statusMap = {{ status_map|tojson }};
+
+    function paintStatus(id, status) {
+      const el = document.getElementById(`status-${id}`);
+      if (!el) return;
+      const dot = el.querySelector('.dot');
+      const label = el.querySelector('.label');
+      const state = status.state || 'unknown';
+      if (state === 'running') {
+        dot.className = 'dot up';
+        label.textContent = 'Running';
+      } else if (state === 'not found' || state === 'exited' || state === 'error') {
+        dot.className = 'dot down';
+        label.textContent = state;
+      } else {
+        dot.className = 'dot warn';
+        label.textContent = state;
+      }
+    }
+
+    function paintAll() {
+      Object.entries(statusMap).forEach(([id, st]) => paintStatus(id, st));
+    }
+
+    async function refreshAll() {
+      const res = await fetch('/api/status');
+      if (!res.ok) return;
+      const data = await res.json();
+      Object.assign(statusMap, data);
+      paintAll();
+    }
+
+    async function refreshOne(id) {
+      const res = await fetch('/api/status');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data[id]) {
+        statusMap[id] = data[id];
+        paintStatus(id, data[id]);
+      }
+    }
+
+    paintAll();
+    setInterval(refreshAll, 5000);
+  </script>
+</body>
+</html>

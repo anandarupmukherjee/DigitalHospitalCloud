@@ -1,0 +1,35 @@
+services:
+  dashboard:
+    build: ./dashboard
+    container_name: cloud_orchestrator_dashboard
+    volumes:
+      - ./dashboard:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - APPS_CONFIG=/app/apps.yaml
+      - APP_HOST=159.65.209.75
+    ports:
+      - "5001:5000"
+    networks:
+      - default
+      - cloud_apps
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - dashboard
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - cloud_apps
+
+networks:
+  default:
+  cloud_apps:
+    external: true
+    name: digitalhospitalscloud_apps

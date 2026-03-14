@@ -1,0 +1,18 @@
+apps:
+  - id: histopath
+    name: Histopath Inventory
+    description: Inventory manager
+    url: http://159.65.209.75/histopath/
+    container: histopath-web
+
+  - id: genomics
+    name: Genomics Inventory
+    description: Inventory manager
+    url: http://159.65.209.75/genomics/
+    container: genomics-web
+
+  - id: tracker
+    name: Sample Tracker
+    description: Sample tracking
+    url: http://159.65.209.75/tracker/
+    container: logistics-tracking-web
