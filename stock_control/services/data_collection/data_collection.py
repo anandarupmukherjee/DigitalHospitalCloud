@@ -12,6 +12,7 @@ def _blank_result():
         "raw_product_code": "",
         "lot_number": "",
         "expiry_date": "",
+        "qr_numeric_code": "",
         "format": None,
     }
 
@@ -31,6 +32,12 @@ def _store_codes(result, code):
     normalized = code.lstrip("0")
     result["product_code"] = code
     result["normalized_product_code"] = normalized if normalized else code
+    # For GS1-based QR barcodes where the GTIN encodes a numeric
+    # product identifier (e.g. 00000000100018 -> 100018), we treat the
+    # normalized numeric value as a candidate QR number. Downstream
+    # logic will map this to Product.qr_numeric_code where relevant.
+    if normalized and normalized.isdigit():
+        result["qr_numeric_code"] = normalized
 
 
 def _clean_payload(raw):
@@ -160,10 +167,34 @@ def get_product_by_barcode(request):
         return JsonResponse({"error": "No barcode provided"}, status=400)
 
     print(barcode)
-    product = Product.objects.filter(product_code__iexact=barcode).first()
 
-    if not product and barcode.isdigit():
-        product = Product.objects.filter(product_code__iexact=barcode.lstrip("0")).first()
+    product = None
+
+    # First, try to interpret the barcode as a structured GS1/3PR code
+    # and resolve by QR numeric identifier if available.
+    parsed = parse_barcode_data(barcode)
+    if parsed:
+        qr_numeric = (parsed.get("qr_numeric_code") or "").strip()
+        if qr_numeric.isdigit():
+            product = Product.objects.filter(qr_numeric_code=int(qr_numeric)).first()
+
+        if not product:
+            parsed_code = (parsed.get("product_code") or "").strip()
+            if parsed_code:
+                product = Product.objects.filter(product_code__iexact=parsed_code).first()
+                if not product and parsed_code.isdigit():
+                    product = Product.objects.filter(
+                        product_code__iexact=parsed_code.lstrip("0")
+                    ).first()
+
+    # Fallback for legacy/unknown formats: treat the raw barcode as a
+    # product code.
+    if not product:
+        product = Product.objects.filter(product_code__iexact=barcode).first()
+        if not product and barcode.isdigit():
+            product = Product.objects.filter(
+                product_code__iexact=barcode.lstrip("0")
+            ).first()
 
     if product:
         latest_item = product.items.order_by('-expiry_date').first()

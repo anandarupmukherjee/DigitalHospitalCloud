@@ -24,9 +24,11 @@ class QualityCheckForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, allowed_product_ids=None, **kwargs):
         super().__init__(*args, **kwargs)
         base_queryset = ProductItem.objects.select_related("product").all()
+        if allowed_product_ids is not None:
+            base_queryset = base_queryset.filter(product_id__in=allowed_product_ids)
 
         if not self.instance.pk or not getattr(self.instance, "product_item_id", None):
             base_queryset = base_queryset.exclude(

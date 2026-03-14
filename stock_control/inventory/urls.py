@@ -57,6 +57,9 @@ urlpatterns = [
     path('manage_product_codes/', views.manage_product_codes, name='manage_product_codes'),
     path('help/', views.help_page, name='help'),
 
+    # Stock-in consolidation page
+    path('stock-in/', views.stock_in_overview, name='stock_in_overview'),
+
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('login/', auth_views.LoginView.as_view(), name='login'),
 ]

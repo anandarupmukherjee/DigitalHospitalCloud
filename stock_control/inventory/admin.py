@@ -45,8 +45,18 @@ class LocationAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ("product_code", "name", "supplier", "threshold", "lead_time")
-    search_fields = ("product_code", "name")
+    list_display = (
+        "product_code",
+        "name",
+        "alias",
+        "qr_numeric_code",
+        "punchout",
+        "minimum_stock_unopened",
+        "ideal_stock_level",
+        "threshold",
+        "lead_time",
+    )
+    search_fields = ("product_code", "name", "alias")
     raw_id_fields = ("supplier_ref", "location")
 
 

@@ -13,6 +13,16 @@
     <div class="dashboard-container">
         <div class="card table-card">
             <h2>Lots Below Threshold</h2>
+            {% if team_manager_scope and location_tracking_enabled %}
+              <p class="info-text">
+                Showing results for locations:
+                {% if user_locations %}
+                  {{ user_locations|join:", " }}
+                {% else %}
+                  (no locations assigned)
+                {% endif %}
+              </p>
+            {% endif %}
             <table>
                 <thead>
                     <tr>

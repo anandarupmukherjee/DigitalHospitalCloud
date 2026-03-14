@@ -7,19 +7,51 @@ from django.db.models import F
 from django.shortcuts import redirect, render
 
 from inventory.access_control import group_required
+from inventory.roles import ROLE_INVENTORY_MANAGER, ROLE_TEAM_MANAGER
+from inventory.location_utils import (
+    ACTIVE_USER_LOCATION_SESSION_KEY,
+    build_user_location_state,
+    coerce_location_id,
+)
 from services.data_collection.data_collection import parse_barcode_data
-from services.data_storage.models import Product, StockRegistration
-from services.data_storage.models import ProductItem
+from services.data_storage.models import Product, ProductItem, StockRegistration
 
 
 @login_required
-@group_required(["Inventory Manager"])
+@group_required([ROLE_INVENTORY_MANAGER, ROLE_TEAM_MANAGER])
 def register_stock(request):
-    recent_registrations = StockRegistration.objects.select_related("product_item", "user").order_by("-timestamp")[:10]
+    location_state = build_user_location_state(
+        request.user, request.session.get(ACTIVE_USER_LOCATION_SESSION_KEY)
+    )
+    location_choices = location_state["locations"]
+    allowed_location_ids = location_state["allowed_ids"]
+    location_selection_required = location_state["selection_required"]
+    selected_location_id = location_state["selected_id"]
+
+    recent_registrations = (
+        StockRegistration.objects.select_related("product_item", "user", "location")
+        .order_by("-timestamp")[:10]
+    )
     register_messages = [m for m in messages.get_messages(request) if "register_stock" in m.tags]
 
     if request.method == "POST":
         raw_barcode = (request.POST.get("barcode") or "").strip()
+        posted_location_id = coerce_location_id(request.POST.get("selected_location"))
+        if posted_location_id is not None:
+            selected_location_id = posted_location_id
+        location_error = None
+        if allowed_location_ids:
+            if location_selection_required and not selected_location_id:
+                location_error = "Select a location before registering stock."
+            elif selected_location_id and selected_location_id not in allowed_location_ids:
+                location_error = "Invalid location selected."
+                selected_location_id = None
+        else:
+            selected_location_id = None
+
+        if location_error:
+            messages.error(request, location_error, extra_tags="register_stock")
+            return redirect("data_collection_3:register_stock")
 
         if not raw_barcode:
             messages.error(request, "Scan a barcode to register stock.", extra_tags="register_stock")
@@ -29,11 +61,13 @@ def register_stock(request):
         product_code = ""
         lot_number = ""
         expiry_str = ""
+        qr_numeric_code = ""
 
         if parsed:
             product_code = (parsed.get("product_code") or "").strip()
             lot_number = (parsed.get("lot_number") or "").strip()
             expiry_str = (parsed.get("expiry_date") or "").strip()
+            qr_numeric_code = (parsed.get("qr_numeric_code") or "").strip()
         else:
             product_code = raw_barcode
 
@@ -46,22 +80,31 @@ def register_stock(request):
                 except ValueError:
                     continue
 
-        search_codes = []
-        candidates = [product_code, raw_barcode]
-        for code in candidates:
-            if not code:
-                continue
-            search_codes.append(code)
-            if code.isdigit():
-                search_codes.append(code.lstrip("0"))
-
         product = None
-        for code in search_codes:
-            if not code:
-                continue
-            product = Product.objects.filter(product_code__iexact=code).first()
-            if product:
-                break
+
+        # Prefer matching by QR numeric code when present (GS1 QR flow).
+        if qr_numeric_code and qr_numeric_code.isdigit():
+            product = Product.objects.filter(
+                qr_numeric_code=int(qr_numeric_code)
+            ).first()
+
+        # Fallback: legacy behaviour based on product_code / raw barcode.
+        if not product:
+            search_codes = []
+            candidates = [product_code, raw_barcode]
+            for code in candidates:
+                if not code:
+                    continue
+                search_codes.append(code)
+                if code.isdigit():
+                    search_codes.append(code.lstrip("0"))
+
+            for code in search_codes:
+                if not code:
+                    continue
+                product = Product.objects.filter(product_code__iexact=code).first()
+                if product:
+                    break
 
         if not product:
             messages.error(request, "No product matches the scanned barcode.", extra_tags="register_stock")
@@ -94,10 +137,14 @@ def register_stock(request):
                 product_item=item,
                 quantity=1,
                 user=request.user,
+                location_id=selected_location_id,
                 barcode=raw_barcode,
                 lot_number=lot_number or item.lot_number,
                 expiry_date=expiry_date or item.expiry_date,
             )
+
+        if selected_location_id:
+            request.session[ACTIVE_USER_LOCATION_SESSION_KEY] = selected_location_id
 
         if created_new_item:
             messages.info(
@@ -119,5 +166,8 @@ def register_stock(request):
         {
             "recent_registrations": recent_registrations,
             "register_messages": register_messages,
+            "location_choices": location_choices,
+            "location_selection_required": location_selection_required,
+            "selected_location_id": selected_location_id,
         },
     )

@@ -85,10 +85,14 @@ class ProductForm(forms.ModelForm):
         fields = [
             'product_code',
             'name',
+            'alias',
+            'punchout',
             'supplier',
             'supplier_ref',
             'location',
             'threshold',
+            'minimum_stock_unopened',
+            'ideal_stock_level',
             'lead_time',
         ]
 
@@ -160,8 +164,8 @@ class AdminUserCreationForm(UserCreationForm):
             return
         role = self.cleaned_data.get("role")
         location = self.cleaned_data.get("location")
-        if role == "staff" and not location:
-            raise forms.ValidationError("Staff users must be assigned to a location.")
+        if role in {"staff", "team_manager"} and not location:
+            raise forms.ValidationError("Staff and Team Manager users must be assigned to a location.")
 
 
 class AdminUserEditForm(forms.ModelForm):
@@ -214,8 +218,8 @@ class AdminUserEditForm(forms.ModelForm):
             return
         role = self.cleaned_data.get("role")
         location = self.cleaned_data.get("location")
-        if role == "staff" and not location:
-            raise forms.ValidationError("Staff users must be assigned to a location.")
+        if role in {"staff", "team_manager"} and not location:
+            raise forms.ValidationError("Staff and Team Manager users must be assigned to a location.")
 
     def _sync_location(self, user):
         if not (self.location_tracking_enabled and UserLocation):

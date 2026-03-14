@@ -27,8 +27,9 @@ def _resolve_product_item_from_barcode(raw):
         return None
     raw_code = barcode_data.get("product_code") or ""
     normalized_code = barcode_data.get("normalized_product_code") or ""
+    qr_numeric_code = barcode_data.get("qr_numeric_code") or ""
     product_code_candidates = []
-    for value in [raw_code, normalized_code]:
+    for value in [raw_code, normalized_code, qr_numeric_code]:
         if not value:
             continue
         if value not in product_code_candidates:
@@ -43,6 +44,10 @@ def _resolve_product_item_from_barcode(raw):
     product = None
     for candidate in product_code_candidates:
         product = Product.objects.filter(product_code__iexact=candidate).first()
+        if not product and candidate.isdigit():
+            product = Product.objects.filter(
+                qr_numeric_code=int(candidate)
+            ).first()
         if product:
             break
     if not product:

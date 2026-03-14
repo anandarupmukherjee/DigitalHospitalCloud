@@ -1,0 +1,101 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Stock In Overview</title>
+  <link rel="stylesheet" type="text/css" href="{% static 'inventory/styles.css' %}">
+  <style>
+    .pending-row {
+      background-color: #ffd6d6;
+    }
+    .stock-in-form {
+      display: inline-block;
+      margin: 0;
+    }
+    .stock-in-form input,
+    .stock-in-form select {
+      max-width: 120px;
+    }
+  </style>
+</head>
+<body>
+  {% include "includes/navbar.html" %}
+
+  <div class="dashboard-container">
+    <div class="card">
+      <h1>Stock In (Consolidation)</h1>
+      <p>
+        This page shows QR codes that have been generated for products
+        (via the print MQTT topic) and lets you record how much stock
+        is expected at each location. As teams register stock via
+        barcode scans, the registered quantity is subtracted from the
+        expected quantity. Rows with remaining items are highlighted.
+      </p>
+    </div>
+
+    <div class="card table-card">
+      <h2>Printed QR Codes &amp; Expected Stock</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Last Printed At</th>
+              <th>Product Code</th>
+              <th>Product Name</th>
+              <th>QR Code Value</th>
+              <th>Print Count</th>
+              <th>Intended Location</th>
+              <th>Qty In</th>
+              <th>Registered Qty</th>
+              <th>Remaining</th>
+              <th>Update</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in entries %}
+              <tr class="{% if entry.is_pending %}pending-row{% endif %}">
+                <td>{{ entry.last_printed_at|date:"Y-m-d H:i" }}</td>
+                <td>{{ entry.product_code }}</td>
+                <td>{{ entry.product_name }}</td>
+                <td>{{ entry.qrcode_value }}</td>
+                <td>{{ entry.print_count }}</td>
+                <td>
+                  <form method="post" class="stock-in-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="entry_id" value="{{ entry.id }}">
+                    <select name="location_id">
+                      <option value="">-- Select --</option>
+                      {% for loc in locations %}
+                        <option value="{{ loc.id }}"
+                                {% if entry.intended_location_id == loc.id %}selected{% endif %}>
+                          {{ loc.name }}
+                        </option>
+                      {% endfor %}
+                    </select>
+                </td>
+                <td>
+                    <input type="number" name="quantity_expected" min="0"
+                           value="{{ entry.quantity_expected|default_if_none:0 }}">
+                </td>
+                <td>{{ entry.registered_quantity }}</td>
+                <td>{{ entry.remaining_quantity }}</td>
+                <td>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                  </form>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="10">No stock-in entries recorded yet.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+

@@ -34,6 +34,36 @@
           </ul>
         </div>
       {% endif %}
+      {% if team_manager_scope and location_tracking_enabled %}
+        <p class="info-text">
+          Showing products for locations:
+          {% if user_locations %}
+            {{ user_locations|join:", " }}
+          {% else %}
+            (no locations assigned)
+          {% endif %}
+        </p>
+      {% endif %}
+      {% if location_choices %}
+        <div class="form-row">
+          <form method="get" class="inline-form">
+            <label for="location_id">Select Location</label><br>
+            <select id="location_id" name="location_id" onchange="this.form.submit()">
+              {% if location_selection_required %}
+                <option value="">-- Choose Location --</option>
+              {% endif %}
+              {% for loc in location_choices %}
+                <option value="{{ loc.id }}" {% if loc.id == selected_location_id %}selected{% endif %}>{{ loc.name }}</option>
+              {% endfor %}
+            </select>
+            <input type="hidden" name="product_id" value="{{ selected_product.id|default:'' }}">
+            <input type="hidden" name="barcode" value="{{ barcode_value }}">
+          </form>
+        </div>
+      {% endif %}
+      {% if location_selection_required and not selected_location_id %}
+        <p class="info-text">Select a location to view product lots awaiting QC.</p>
+      {% endif %}
 
       <div class="form-row">
         <form method="get" class="inline-form">
@@ -46,6 +76,7 @@
               </option>
             {% endfor %}
           </select>
+          <input type="hidden" name="location_id" value="{{ selected_location_id }}">
           <button type="submit" class="btn btn-primary">View Lots</button>
         </form>
 
@@ -59,6 +90,7 @@
             placeholder="Scan or type barcode"
             autocomplete="off"
           >
+          <input type="hidden" name="location_id" value="{{ selected_location_id }}">
           <button type="submit" class="btn btn-primary">Lookup</button>
         </form>
       </div>
@@ -103,7 +135,7 @@
                 </tr>
               {% empty %}
                 <tr>
-                  <td colspan="6">No lots found for this product.</td>
+                  <td colspan="7">No lots found for this product.</td>
                 </tr>
               {% endfor %}
             </tbody>
