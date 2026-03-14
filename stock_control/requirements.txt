@@ -8,3 +8,4 @@ numpy==1.23.5
 statsmodels
 pyyaml
 paho-mqtt==1.6.1
+psycopg2-binary==2.9.9

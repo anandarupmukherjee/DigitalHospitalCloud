@@ -20,9 +20,23 @@
 
 # version: '3.8'
 
-name: histopath
+
 
 services:
+  db:
+    image: postgres:13
+    container_name: histopath-db
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=histopath
+      - POSTGRES_USER=histopath
+      - POSTGRES_PASSWORD=histopath_password
+    networks:
+      - default
+      - cloud_apps
+    restart: unless-stopped
+
   web:
     build: .
     container_name: histopath-web
@@ -32,6 +46,8 @@ services:
     ports:
       - "${PORT:-8001}:${PORT:-8001}"
     restart: unless-stopped
+    depends_on:
+      - db
     env_file:
       - django_secret_key
     environment:
@@ -41,6 +57,12 @@ services:
       PORT: "${PORT:-8001}"
       ENABLE_DATA_OUTPUT_LISTENER: "0"
       FORCE_SCRIPT_NAME: /histopath
+      DB_ENGINE: django.db.backends.postgresql
+      DB_NAME: histopath
+      DB_USER: histopath
+      DB_PASSWORD: histopath_password
+      DB_HOST: db
+      DB_PORT: 5432
     networks:
       - default
       - cloud_apps

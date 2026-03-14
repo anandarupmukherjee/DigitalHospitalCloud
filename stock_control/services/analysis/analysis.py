@@ -54,7 +54,7 @@ def get_dashboard_data():
     start_date = today - datetime.timedelta(days=30)
     withdrawals = Withdrawal.objects.filter(timestamp__date__gte=start_date)
     withdrawal_by_day = withdrawals.extra({'day': "date(timestamp)"}).values('day').annotate(total=Count('id')).order_by('day')
-    withdrawal_dates = [item['day'] for item in withdrawal_by_day]
+    withdrawal_dates = [str(item['day']) for item in withdrawal_by_day]
     withdrawal_counts = [item['total'] for item in withdrawal_by_day]
 
     # 4. Top Withdrawn Products

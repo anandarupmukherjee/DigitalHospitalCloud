@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.db import models
 
-from services.data_storage.models import ProductItem
+from services.data_storage.models import ProductItem, Location
 
 
 class QualityCheck(models.Model):
@@ -41,6 +41,13 @@ class QualityCheck(models.Model):
         related_name="quality_checks_signed",
     )
     signed_off_at = models.DateTimeField(null=True, blank=True)
+    location = models.ForeignKey(
+        Location,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="quality_checks",
+    )
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

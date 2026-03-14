@@ -1,0 +1,582 @@
+[
+  {
+    "model": "data_storage.supplier",
+    "pk": 1,
+    "fields": {
+      "name": "Leica",
+      "contact_email": null,
+      "contact_phone": null
+    }
+  },
+  {
+    "model": "data_storage.supplier",
+    "pk": 2,
+    "fields": {
+      "name": "Amazon",
+      "contact_email": null,
+      "contact_phone": null
+    }
+  },
+  {
+    "model": "data_storage.supplier",
+    "pk": 3,
+    "fields": {
+      "name": "Sainsbury",
+      "contact_email": null,
+      "contact_phone": null
+    }
+  },
+  {
+    "model": "data_storage.product",
+    "pk": 110,
+    "fields": {
+      "product_code": "8906069416573",
+      "name": "Hard candy",
+      "supplier": "THIRD_PARTY",
+      "threshold": 20,
+      "lead_time": "3000000 days, 0:00:00"
+    }
+  },
+  {
+    "model": "data_storage.productitem",
+    "pk": 110,
+    "fields": {
+      "product": 110,
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "current_stock": "23",
+      "units_per_quantity": 50,
+      "accumulated_partial": 8,
+      "product_feature": "unit"
+    }
+  },
+  {
+    "model": "data_storage.product",
+    "pk": 111,
+    "fields": {
+      "product_code": "8003753950921",
+      "name": "Coffee",
+      "supplier": "LEICA",
+      "threshold": 20,
+      "lead_time": "2000000 days, 0:00:00"
+    }
+  },
+  {
+    "model": "data_storage.productitem",
+    "pk": 111,
+    "fields": {
+      "product": 111,
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "current_stock": "56",
+      "units_per_quantity": 30,
+      "accumulated_partial": 0,
+      "product_feature": "volume"
+    }
+  },
+  {
+    "model": "data_storage.product",
+    "pk": 112,
+    "fields": {
+      "product_code": "4009900550871",
+      "name": "Green chewing gum",
+      "supplier": "LEICA",
+      "threshold": 10,
+      "lead_time": "2000000 days, 0:00:00"
+    }
+  },
+  {
+    "model": "data_storage.productitem",
+    "pk": 112,
+    "fields": {
+      "product": 112,
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "current_stock": "1",
+      "units_per_quantity": 100,
+      "accumulated_partial": 50,
+      "product_feature": "unit"
+    }
+  },
+  {
+    "model": "data_storage.product",
+    "pk": 113,
+    "fields": {
+      "product_code": "4009900477413",
+      "name": "White chewing gum",
+      "supplier": "LEICA",
+      "threshold": 20,
+      "lead_time": "2000000 days, 0:00:00"
+    }
+  },
+  {
+    "model": "data_storage.productitem",
+    "pk": 113,
+    "fields": {
+      "product": 113,
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "current_stock": "27",
+      "units_per_quantity": 100,
+      "accumulated_partial": 2,
+      "product_feature": "unit"
+    }
+  },
+  {
+    "model": "data_storage.product",
+    "pk": 114,
+    "fields": {
+      "product_code": "5060574460049",
+      "name": "Apple juice",
+      "supplier": "THIRD_PARTY",
+      "threshold": 10,
+      "lead_time": "4000000 days, 0:00:00"
+    }
+  },
+  {
+    "model": "data_storage.productitem",
+    "pk": 114,
+    "fields": {
+      "product": 114,
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "current_stock": "20",
+      "units_per_quantity": 10,
+      "accumulated_partial": 0,
+      "product_feature": "volume"
+    }
+  },
+  {
+    "model": "data_storage.product",
+    "pk": 115,
+    "fields": {
+      "product_code": "B09GJW185P",
+      "name": "Wireless scanner",
+      "supplier": "THIRD_PARTY",
+      "threshold": 5,
+      "lead_time": "10000000 days, 0:00:00"
+    }
+  },
+  {
+    "model": "data_storage.productitem",
+    "pk": 115,
+    "fields": {
+      "product": 115,
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "current_stock": "3",
+      "units_per_quantity": 1,
+      "accumulated_partial": 0,
+      "product_feature": "unit"
+    }
+  },
+  {
+    "model": "data_storage.product",
+    "pk": 116,
+    "fields": {
+      "product_code": "8000500153383",
+      "name": "Tic Tac",
+      "supplier": "THIRD_PARTY",
+      "threshold": 10,
+      "lead_time": "5000000 days, 0:00:00"
+    }
+  },
+  {
+    "model": "data_storage.productitem",
+    "pk": 116,
+    "fields": {
+      "product": 116,
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "current_stock": "30",
+      "units_per_quantity": 100,
+      "accumulated_partial": 0,
+      "product_feature": "unit"
+    }
+  },
+  {
+    "model": "data_storage.purchaseorder",
+    "pk": 20,
+    "fields": {
+      "quantity_ordered": 20,
+      "order_date": "2025-03-06 14:21:37.272242",
+      "expected_delivery": "2025-03-09 14:21:00",
+      "status": "Delivered",
+      "ordered_by": 1,
+      "product_item": 110,
+      "product_code": "8906069416573",
+      "product_name": "Hard candy",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11"
+    }
+  },
+  {
+    "model": "data_storage.purchaseorder",
+    "pk": 21,
+    "fields": {
+      "quantity_ordered": 10,
+      "order_date": "2025-03-06 15:56:25.198995",
+      "expected_delivery": "2025-03-04 15:56:00",
+      "status": "Delivered",
+      "ordered_by": 1,
+      "product_item": 111,
+      "product_code": "8003753950921",
+      "product_name": "Coffee",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11"
+    }
+  },
+  {
+    "model": "data_storage.purchaseorder",
+    "pk": 22,
+    "fields": {
+      "quantity_ordered": 2,
+      "order_date": "2025-03-06 15:56:55.892676",
+      "expected_delivery": "2025-03-05 15:56:00",
+      "status": "Delivered",
+      "ordered_by": 1,
+      "product_item": 112,
+      "product_code": "4009900550871",
+      "product_name": "Green chewing gum",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11"
+    }
+  },
+  {
+    "model": "data_storage.purchaseorder",
+    "pk": 23,
+    "fields": {
+      "quantity_ordered": 30,
+      "order_date": "2025-03-10 13:42:17.187777",
+      "expected_delivery": "2025-03-22 13:42:00",
+      "status": "Ordered",
+      "ordered_by": 4,
+      "product_item": 114,
+      "product_code": "5060574460049",
+      "product_name": "Apple juice",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11"
+    }
+  },
+  {
+    "model": "data_storage.purchaseorder",
+    "pk": 24,
+    "fields": {
+      "quantity_ordered": 4,
+      "order_date": "2025-03-10 14:18:25.666613",
+      "expected_delivery": "2025-03-08 14:18:00",
+      "status": "Delayed",
+      "ordered_by": 4,
+      "product_item": 111,
+      "product_code": "8003753950921",
+      "product_name": "Coffee",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11"
+    }
+  },
+  {
+    "model": "data_storage.purchaseorder",
+    "pk": 25,
+    "fields": {
+      "quantity_ordered": 30,
+      "order_date": "2025-03-10 14:19:38.127433",
+      "expected_delivery": "2025-03-06 14:19:00",
+      "status": "Delivered",
+      "ordered_by": 4,
+      "product_item": 116,
+      "product_code": "8000500153383",
+      "product_name": "Tic Tac",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11"
+    }
+  },
+  {
+    "model": "data_storage.withdrawal",
+    "pk": 69,
+    "fields": {
+      "quantity": "1",
+      "withdrawal_type": "unit",
+      "timestamp": "2025-03-06 14:22:17.301469",
+      "user": 1,
+      "product_item": 110,
+      "product_code": "8906069416573",
+      "product_name": "Hard candy",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "parts_withdrawn": 0,
+      "barcode": null
+    }
+  },
+  {
+    "model": "data_storage.withdrawal",
+    "pk": 70,
+    "fields": {
+      "quantity": "1",
+      "withdrawal_type": "unit",
+      "timestamp": "2025-03-06 14:24:07.275726",
+      "user": 1,
+      "product_item": 112,
+      "product_code": "4009900550871",
+      "product_name": "Green chewing gum",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "parts_withdrawn": 130,
+      "barcode": null
+    }
+  },
+  {
+    "model": "data_storage.withdrawal",
+    "pk": 71,
+    "fields": {
+      "quantity": "0",
+      "withdrawal_type": "volume",
+      "timestamp": "2025-03-06 14:24:47.328659",
+      "user": 1,
+      "product_item": 111,
+      "product_code": "8003753950921",
+      "product_name": "Coffee",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "parts_withdrawn": 40,
+      "barcode": "8003753950921"
+    }
+  },
+  {
+    "model": "data_storage.withdrawal",
+    "pk": 72,
+    "fields": {
+      "quantity": "3",
+      "withdrawal_type": "unit",
+      "timestamp": "2025-03-06 15:09:29.768582",
+      "user": 1,
+      "product_item": 113,
+      "product_code": "4009900477413",
+      "product_name": "White chewing gum",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "parts_withdrawn": 0,
+      "barcode": "4009900477413"
+    }
+  },
+  {
+    "model": "data_storage.withdrawal",
+    "pk": 73,
+    "fields": {
+      "quantity": "0",
+      "withdrawal_type": "volume",
+      "timestamp": "2025-03-06 15:10:03.146317",
+      "user": 1,
+      "product_item": 111,
+      "product_code": "8003753950921",
+      "product_name": "Coffee",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "parts_withdrawn": 4,
+      "barcode": "8003753950921"
+    }
+  },
+  {
+    "model": "data_storage.withdrawal",
+    "pk": 74,
+    "fields": {
+      "quantity": "1",
+      "withdrawal_type": "volume",
+      "timestamp": "2025-03-06 15:54:12.684838",
+      "user": 1,
+      "product_item": 111,
+      "product_code": "8003753950921",
+      "product_name": "Coffee",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "parts_withdrawn": 60,
+      "barcode": "8003753950921"
+    }
+  },
+  {
+    "model": "data_storage.withdrawal",
+    "pk": 75,
+    "fields": {
+      "quantity": "0",
+      "withdrawal_type": "volume",
+      "timestamp": "2025-03-06 15:54:44.519575",
+      "user": 1,
+      "product_item": 111,
+      "product_code": "8003753950921",
+      "product_name": "Coffee",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "parts_withdrawn": 20,
+      "barcode": "8003753950921"
+    }
+  },
+  {
+    "model": "data_storage.withdrawal",
+    "pk": 76,
+    "fields": {
+      "quantity": "30",
+      "withdrawal_type": "unit",
+      "timestamp": "2025-03-06 15:59:36.897596",
+      "user": 1,
+      "product_item": 112,
+      "product_code": "4009900550871",
+      "product_name": "Green chewing gum",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "parts_withdrawn": 0,
+      "barcode": "4009900550871"
+    }
+  },
+  {
+    "model": "data_storage.withdrawal",
+    "pk": 77,
+    "fields": {
+      "quantity": "46",
+      "withdrawal_type": "part",
+      "timestamp": "2025-03-06 17:07:48.352149",
+      "user": 1,
+      "product_item": 110,
+      "product_code": "8906069416573",
+      "product_name": "Hard candy",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "parts_withdrawn": 2300,
+      "barcode": "8906069416573"
+    }
+  },
+  {
+    "model": "data_storage.withdrawal",
+    "pk": 78,
+    "fields": {
+      "quantity": "3",
+      "withdrawal_type": "unit",
+      "timestamp": "2025-03-06 17:45:12.212987",
+      "user": 1,
+      "product_item": 111,
+      "product_code": "8003753950921",
+      "product_name": "Coffee",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "parts_withdrawn": 0,
+      "barcode": "8003753950921"
+    }
+  },
+  {
+    "model": "data_storage.withdrawal",
+    "pk": 79,
+    "fields": {
+      "quantity": "0",
+      "withdrawal_type": "volume",
+      "timestamp": "2025-03-06 17:45:39.691589",
+      "user": 1,
+      "product_item": 111,
+      "product_code": "8003753950921",
+      "product_name": "Coffee",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "parts_withdrawn": 34,
+      "barcode": "8003753950921"
+    }
+  },
+  {
+    "model": "data_storage.withdrawal",
+    "pk": 80,
+    "fields": {
+      "quantity": "0",
+      "withdrawal_type": "part",
+      "timestamp": "2025-03-10 12:27:44.908849",
+      "user": 4,
+      "product_item": 112,
+      "product_code": "4009900550871",
+      "product_name": "Green chewing gum",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "parts_withdrawn": 20,
+      "barcode": null
+    }
+  },
+  {
+    "model": "data_storage.withdrawal",
+    "pk": 81,
+    "fields": {
+      "quantity": "0",
+      "withdrawal_type": "part",
+      "timestamp": "2025-03-10 12:32:41.181884",
+      "user": 4,
+      "product_item": 110,
+      "product_code": "8906069416573",
+      "product_name": "Hard candy",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "parts_withdrawn": 4,
+      "barcode": "8906069416573"
+    }
+  },
+  {
+    "model": "data_storage.withdrawal",
+    "pk": 82,
+    "fields": {
+      "quantity": "0",
+      "withdrawal_type": "part",
+      "timestamp": "2025-03-10 12:33:11.821788",
+      "user": 4,
+      "product_item": 110,
+      "product_code": "8906069416573",
+      "product_name": "Hard candy",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "parts_withdrawn": 4,
+      "barcode": null
+    }
+  },
+  {
+    "model": "data_storage.withdrawal",
+    "pk": 83,
+    "fields": {
+      "quantity": "0",
+      "withdrawal_type": "part",
+      "timestamp": "2025-03-10 13:40:50.758065",
+      "user": 4,
+      "product_item": 113,
+      "product_code": "4009900477413",
+      "product_name": "White chewing gum",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "parts_withdrawn": 2,
+      "barcode": "5060574460049"
+    }
+  },
+  {
+    "model": "data_storage.withdrawal",
+    "pk": 84,
+    "fields": {
+      "quantity": "0",
+      "withdrawal_type": "part",
+      "timestamp": "2025-03-10 13:41:26.876466",
+      "user": 4,
+      "product_item": 114,
+      "product_code": "5060574460049",
+      "product_name": "Apple juice",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "parts_withdrawn": 2,
+      "barcode": "5060574460049"
+    }
+  },
+  {
+    "model": "data_storage.withdrawal",
+    "pk": 85,
+    "fields": {
+      "quantity": "0",
+      "withdrawal_type": "part",
+      "timestamp": "2025-03-10 14:12:14.516399",
+      "user": 4,
+      "product_item": 114,
+      "product_code": "5060574460049",
+      "product_name": "Apple juice",
+      "lot_number": "LEGACY",
+      "expiry_date": "2025-12-11",
+      "parts_withdrawn": 3,
+      "barcode": "5060574460049"
+    }
+  }
+]

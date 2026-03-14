@@ -30,7 +30,7 @@ class Product(models.Model):
         ('THIRD_PARTY', 'Third Party'),
     ]
     product_code = models.CharField(max_length=50, unique=True)
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=255)
     supplier = models.CharField(max_length=20, choices=SUPPLIER_CHOICES, default='LEICA')
     supplier_ref = models.ForeignKey(
         Supplier,
@@ -114,6 +114,13 @@ class Withdrawal(models.Model):
     )
     timestamp = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    location = models.ForeignKey(
+        Location,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="withdrawals",
+    )
     barcode = models.CharField(max_length=128, blank=True, null=True)
 
     parts_withdrawn = models.PositiveIntegerField(
@@ -123,7 +130,7 @@ class Withdrawal(models.Model):
     )
 
     product_code = models.CharField(max_length=50, default="N/A")
-    product_name = models.CharField(max_length=100, default="Unnamed Product")
+    product_name = models.CharField(max_length=255, default="Unnamed Product")
     lot_number = models.CharField(max_length=50, default="UNKNOWN")
     expiry_date = models.DateField(default=date.today)
 
@@ -151,10 +158,17 @@ class StockRegistration(models.Model):
     quantity = models.PositiveIntegerField(default=1)
     timestamp = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    location = models.ForeignKey(
+        Location,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stock_registrations",
+    )
     barcode = models.CharField(max_length=128, blank=True, null=True)
 
     product_code = models.CharField(max_length=50, default="N/A")
-    product_name = models.CharField(max_length=100, default="Unnamed Product")
+    product_name = models.CharField(max_length=255, default="Unnamed Product")
     lot_number = models.CharField(max_length=50, blank=True, default="")
     expiry_date = models.DateField(null=True, blank=True)
 
@@ -182,7 +196,7 @@ class PurchaseOrder(models.Model):
     delivered_at = models.DateTimeField(null=True, blank=True)
 
     product_code = models.CharField(max_length=50, default="N/A")
-    product_name = models.CharField(max_length=100, default="Unnamed Product")
+    product_name = models.CharField(max_length=255, default="Unnamed Product")
     lot_number = models.CharField(max_length=50, default="UNKNOWN")
     expiry_date = models.DateField(default=date.today)
 
@@ -219,7 +233,7 @@ class PurchaseOrderCompletionLog(models.Model):
 
     # Snapshot fields (copied from related models at the time of completion)
     product_code = models.CharField(max_length=50)
-    product_name = models.CharField(max_length=100)
+    product_name = models.CharField(max_length=255)
     lot_number = models.CharField(max_length=50)
     expiry_date = models.DateField()
 

@@ -9,6 +9,8 @@ from services.data_storage.models import Location, Product, ProductItem, Supplie
 from inventory.roles import (
     ROLE_DEFINITIONS,
     ROLE_INVENTORY_MANAGER,
+    ROLE_TEAM_MANAGER,
+    ROLE_STAFF,
     assign_user_role,
     ensure_role_groups,
     get_role_key_for_user,
@@ -118,7 +120,7 @@ class AdminUserCreationForm(UserCreationForm):
         queryset=Location.objects.order_by("name"),
         required=False,
         label="Default Location",
-        help_text="Required for Staff role",
+        help_text="Required for Staff or Team Manager roles",
     )
 
     class Meta:
@@ -160,8 +162,8 @@ class AdminUserCreationForm(UserCreationForm):
             return
         role = self.cleaned_data.get("role")
         location = self.cleaned_data.get("location")
-        if role == "staff" and not location:
-            raise forms.ValidationError("Staff users must be assigned to a location.")
+        if role in {"staff", "team_manager"} and not location:
+            raise forms.ValidationError("Staff and Team Manager users must be assigned to a location.")
 
 
 class AdminUserEditForm(forms.ModelForm):
@@ -172,7 +174,7 @@ class AdminUserEditForm(forms.ModelForm):
         queryset=Location.objects.order_by("name"),
         required=False,
         label="Default Location",
-        help_text="Required for Staff role",
+        help_text="Required for Staff or Team Manager roles",
     )
 
     class Meta:
@@ -214,8 +216,8 @@ class AdminUserEditForm(forms.ModelForm):
             return
         role = self.cleaned_data.get("role")
         location = self.cleaned_data.get("location")
-        if role == "staff" and not location:
-            raise forms.ValidationError("Staff users must be assigned to a location.")
+        if role in {"staff", "team_manager"} and not location:
+            raise forms.ValidationError("Staff and Team Manager users must be assigned to a location.")
 
     def _sync_location(self, user):
         if not (self.location_tracking_enabled and UserLocation):

@@ -18,6 +18,7 @@ from django.urls import reverse_lazy
 from inventory.access_control import group_required
 from inventory.roles import (
     ROLE_INVENTORY_MANAGER,
+    ROLE_TEAM_MANAGER,
     ROLE_STAFF,
     user_is_inventory_manager,
 )
@@ -84,7 +85,7 @@ def is_admin(user):
 def manage_inventory(request):
     return render(request, "manage_inventory.html")
 
-@group_required([ROLE_INVENTORY_MANAGER, ROLE_STAFF, LEGACY_STAFF_ROLE])
+@group_required([ROLE_INVENTORY_MANAGER, ROLE_TEAM_MANAGER, ROLE_STAFF, LEGACY_STAFF_ROLE])
 def view_dashboard(request):
     return render(request, "dashboard.html")
 
@@ -138,7 +139,7 @@ def delete_user(request, user_id):
     return render(request, 'registration/delete_user.html', {'user_obj': user})
 
 @login_required
-@group_required([ROLE_INVENTORY_MANAGER, ROLE_STAFF, LEGACY_STAFF_ROLE])
+@group_required([ROLE_INVENTORY_MANAGER, ROLE_TEAM_MANAGER, ROLE_STAFF, LEGACY_STAFF_ROLE])
 def inventory_dashboard(request):
     context = get_dashboard_data()
 
@@ -211,7 +212,7 @@ def delete_lot(request, item_id):
 
 
 @login_required
-@group_required([ROLE_INVENTORY_MANAGER, ROLE_STAFF, LEGACY_STAFF_ROLE])
+@group_required([ROLE_INVENTORY_MANAGER, ROLE_TEAM_MANAGER, ROLE_STAFF, LEGACY_STAFF_ROLE])
 def create_withdrawal(request):
     return _create_withdrawal(request)
 
@@ -234,7 +235,7 @@ if QualityCheck:
 
 
 @login_required
-@group_required([ROLE_INVENTORY_MANAGER, ROLE_STAFF, LEGACY_STAFF_ROLE])
+@group_required([ROLE_INVENTORY_MANAGER, ROLE_TEAM_MANAGER, ROLE_STAFF, LEGACY_STAFF_ROLE])
 def product_list(request):
     filter_key = request.GET.get("filter", "all")
     valid_filters = {key for key, _ in FILTER_OPTIONS}

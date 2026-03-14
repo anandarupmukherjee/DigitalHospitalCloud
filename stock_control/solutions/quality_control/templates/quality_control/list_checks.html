@@ -19,11 +19,22 @@
                     <a href="{% url 'quality_control:create_check' %}" class="btn btn-primary">New Check</a>
                 </div>
             </div>
+            {% if team_manager_scope and location_tracking_enabled %}
+              <p class="info-text">
+                Showing checks for locations:
+                {% if user_locations %}
+                  {{ user_locations|join:", " }}
+                {% else %}
+                  (no locations assigned)
+                {% endif %}
+              </p>
+            {% endif %}
             <table>
                 <thead>
                     <tr>
                         <th>Product</th>
                         <th>Lot</th>
+                        <th>Location</th>
                         <th>Test Reference</th>
                         <th>Result</th>
                         <th>Status</th>
@@ -37,6 +48,15 @@
                     <tr>
                         <td>{{ check.product_item.product.name }}</td>
                         <td>{{ check.product_item.lot_number }}</td>
+                        <td>
+                          {% if check.location %}
+                            {{ check.location.name }}
+                          {% elif check.product_item.product.location %}
+                            {{ check.product_item.product.location.name }}
+                          {% else %}
+                            —
+                          {% endif %}
+                        </td>
                         <td>{{ check.test_reference|default:"—" }}</td>
                         <td>{{ check.get_result_display|default:"—" }}</td>
                         <td>{{ check.get_status_display }}</td>
@@ -52,7 +72,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="8">No quality checks recorded.</td>
+                        <td colspan="9">No quality checks recorded.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
