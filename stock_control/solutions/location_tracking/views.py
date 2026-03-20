@@ -1,5 +1,4 @@
 from collections import defaultdict
-import datetime
 from decimal import Decimal
 
 from django.contrib import messages
@@ -11,6 +10,7 @@ from django.utils import timezone
 from inventory.access_control import group_required
 from inventory.roles import ROLE_INVENTORY_MANAGER, user_is_inventory_manager
 from services.data_collection.data_collection import parse_barcode_data
+from services.data_collection.barcode_resolution import parse_expiry_date, resolve_product_from_barcode
 from services.data_storage.models import Location, Product, ProductItem
 
 from .forms import LocationStockForm, LocationTransferForm, UserLocationForm
@@ -25,40 +25,20 @@ def _resolve_product_item_from_barcode(raw):
     barcode_data = parse_barcode_data(raw)
     if not barcode_data:
         return None
-    raw_code = barcode_data.get("product_code") or ""
-    normalized_code = barcode_data.get("normalized_product_code") or ""
-    product_code_candidates = []
-    for value in [raw_code, normalized_code]:
-        if not value:
-            continue
-        if value not in product_code_candidates:
-            product_code_candidates.append(value)
-        stripped = value.lstrip("0")
-        if stripped and stripped != value and stripped not in product_code_candidates:
-            product_code_candidates.append(stripped)
+    resolution = resolve_product_from_barcode(barcode_data, raw)
+    product = resolution["product"]
+    if not product:
+        return None
 
     lot_number = barcode_data.get("lot_number")
     expiry_str = barcode_data.get("expiry_date")
 
-    product = None
-    for candidate in product_code_candidates:
-        product = Product.objects.filter(product_code__iexact=candidate).first()
-        if product:
-            break
-    if not product:
-        return None
-
     item_qs = ProductItem.objects.filter(product=product)
     if lot_number:
         item_qs = item_qs.filter(lot_number__iexact=lot_number)
-    if expiry_str:
-        for fmt in ("%d.%m.%Y", "%Y-%m-%d"):
-            try:
-                parsed = datetime.datetime.strptime(expiry_str, fmt).date()
-                item_qs = item_qs.filter(expiry_date=parsed)
-                break
-            except ValueError:
-                continue
+    parsed_expiry = parse_expiry_date(expiry_str)
+    if parsed_expiry:
+        item_qs = item_qs.filter(expiry_date=parsed_expiry)
     return item_qs.order_by("expiry_date").first()
 
 

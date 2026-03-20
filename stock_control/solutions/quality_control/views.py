@@ -23,6 +23,7 @@ from inventory.roles import (
     user_is_inventory_manager,
 )
 from services.data_collection.data_collection import parse_barcode_data
+from services.data_collection.barcode_resolution import resolve_product_from_barcode
 from services.data_storage.models import Product, ProductItem
 from stock_control.module_loader import module_flags as get_module_flags
 
@@ -163,23 +164,8 @@ def lot_status(request):
     product_id = request.GET.get("product_id")
 
     if barcode_value:
-        parsed = parse_barcode_data(barcode_value)
-        product_code = ""
-        if parsed:
-            product_code = (parsed.get("product_code") or "").strip()
-        else:
-            product_code = barcode_value
-
-        lookup_codes = [product_code, barcode_value]
-        if product_code.isdigit():
-            lookup_codes.append(product_code.lstrip("0"))
-
-        for code in lookup_codes:
-            if not code:
-                continue
-            selected_product = Product.objects.filter(product_code__iexact=code).first()
-            if selected_product:
-                break
+        parsed = parse_barcode_data(barcode_value) or {}
+        selected_product = resolve_product_from_barcode(parsed, barcode_value)["product"]
         if not selected_product:
             messages.error(request, "No product matches the scanned barcode.")
 

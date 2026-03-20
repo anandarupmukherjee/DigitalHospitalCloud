@@ -10,13 +10,12 @@
   <!-- <script src="{% static 'inventory/scripts.js' %}" defer></script> -->
 
 
-  <script src="{% static 'inventory/barcode_fetch.js' %}"></script>
+  <script src="{% static 'inventory/barcode_fetch.js' %}?v=20260320"></script>
   <script src="{% static 'inventory/withdrawal_mode.js' %}"></script>
   <script src="{% static 'inventory/manual_product_fetch.js' %}"></script>
   <script src="{% static 'inventory/mode_toggle.js' %}"></script>  
   <script src="{% static 'inventory/unit_label_toggle.js' %}"></script>
   <script src="{% static 'inventory/part_calculation.js' %}"></script> 
-  <script src="{% static 'inventory/barcode_parser.js' %}"></script> 
 </head>
 {% with request.META.SCRIPT_NAME|default:'' as script_prefix %}
 <body data-root-url="{{ script_prefix }}">
@@ -78,6 +77,7 @@
         <!-- Barcode Scanner Section (shown by default) -->
         <div id="barcode-section">
           <input type="hidden" id="parsed_product_code_hidden" name="product_code_from_barcode">
+          <input type="hidden" id="resolved_product_uuid" name="resolved_product_uuid">
 
           <!-- Barcode input -->
           <label for="id_barcode">Scan Barcode:</label>
@@ -107,7 +107,9 @@
           <div id="barcode-product-details">
             <p>Stock: <span id="stock-display"></span></p>
             <p>Units per Item: <span id="units-display"></span></p>
+            <p id="barcode-lookup-status" class="info-text"></p>
           </div>
+
         </div>
 
 
@@ -183,6 +185,129 @@
       </form>
     </div>
   </div>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const barcodeInput = document.getElementById("id_barcode");
+      if (!barcodeInput) return;
+
+      const productNameInput = document.getElementById("id_product_name");
+      const productCodeVisible = document.getElementById("parsed_product_code");
+      const productCodeHidden = document.getElementById("parsed_product_code_hidden");
+      const resolvedProductUuid = document.getElementById("resolved_product_uuid");
+      const lotVisible = document.getElementById("parsed_lot_number");
+      const expiryVisible = document.getElementById("parsed_expiry_date");
+      const lotHidden = document.getElementById("lot_number_field");
+      const expiryHidden = document.getElementById("expiry_date_field");
+      const stockDisplay = document.getElementById("stock-display");
+      const unitsDisplay = document.getElementById("units-display");
+      const unitsPerQuantityInput = document.getElementById("id_units_per_quantity");
+      const lookupStatus = document.getElementById("barcode-lookup-status");
+
+      let timer = null;
+
+      function setStatus(msg, isError) {
+        if (!lookupStatus) return;
+        lookupStatus.textContent = msg || "";
+        lookupStatus.style.color = isError ? "#b00020" : "";
+      }
+
+      function clearFields() {
+        if (productNameInput) productNameInput.value = "";
+        if (productCodeVisible) productCodeVisible.value = "";
+        if (productCodeHidden) productCodeHidden.value = "";
+        if (resolvedProductUuid) resolvedProductUuid.value = "";
+        if (lotVisible) lotVisible.value = "";
+        if (expiryVisible) expiryVisible.value = "";
+        if (lotHidden) lotHidden.value = "";
+        if (expiryHidden) expiryHidden.value = "";
+        if (stockDisplay) stockDisplay.textContent = "";
+        if (unitsDisplay) unitsDisplay.textContent = "";
+        if (unitsPerQuantityInput) unitsPerQuantityInput.value = "";
+      }
+
+      function buildUrls(raw) {
+        const encoded = encodeURIComponent((raw || "").trim());
+        const urls = [];
+        try {
+          urls.push(new URL("../data/get-product-by-barcode/?barcode=" + encoded, window.location.href).toString());
+        } catch (e) {}
+        urls.push("/data/get-product-by-barcode/?barcode=" + encoded);
+        urls.push("/histopath/data/get-product-by-barcode/?barcode=" + encoded);
+        return [...new Set(urls)];
+      }
+
+      async function lookup(rawBarcode) {
+        const raw = (rawBarcode || "").trim();
+        if (!raw) return;
+        setStatus("Looking up barcode...", false);
+
+        const urls = buildUrls(raw);
+        let payload = null;
+        for (const url of urls) {
+          try {
+            const res = await fetch(url, { headers: { Accept: "application/json" } });
+            const contentType = (res.headers.get("content-type") || "").toLowerCase();
+            if (!contentType.includes("application/json")) continue;
+            payload = await res.json();
+            break;
+          } catch (e) {}
+        }
+
+        if (!payload) {
+          clearFields();
+          setStatus("Barcode lookup endpoint unreachable.", true);
+          return;
+        }
+
+        if (payload.resolved_product && !payload.mapping_required) {
+          const product = payload.resolved_product || {};
+          if (productNameInput) productNameInput.value = product.name || payload.name || "";
+          if (productCodeVisible) {
+            productCodeVisible.value = (payload.parsed && (payload.parsed.raw_product_code || payload.parsed.normalized_product_code)) || product.product_code || "";
+          }
+          if (productCodeHidden) {
+            productCodeHidden.value = (payload.parsed && (payload.parsed.raw_product_code || payload.parsed.normalized_product_code)) || product.product_code || "";
+          }
+          if (resolvedProductUuid) resolvedProductUuid.value = product.id || "";
+          if (lotVisible) lotVisible.value = (payload.parsed && payload.parsed.lot_number) || "";
+          if (expiryVisible) expiryVisible.value = (payload.parsed && payload.parsed.expiry_date) || "";
+          if (lotHidden) lotHidden.value = (payload.parsed && payload.parsed.lot_number) || "";
+          if (expiryHidden) expiryHidden.value = (payload.parsed && payload.parsed.expiry_date) || "";
+          if (stockDisplay) stockDisplay.textContent = payload.stock || payload.current_stock || "";
+          if (unitsDisplay) unitsDisplay.textContent = (payload.units_per_quantity ?? "");
+          if (unitsPerQuantityInput) unitsPerQuantityInput.value = (payload.units_per_quantity ?? "");
+          setStatus("Barcode resolved.", false);
+        } else {
+          clearFields();
+          if (payload.parsed) {
+            if (productCodeVisible) productCodeVisible.value = payload.parsed.raw_product_code || payload.parsed.normalized_product_code || "";
+            if (productCodeHidden) productCodeHidden.value = payload.parsed.raw_product_code || payload.parsed.normalized_product_code || "";
+            if (lotVisible) lotVisible.value = payload.parsed.lot_number || "";
+            if (expiryVisible) expiryVisible.value = payload.parsed.expiry_date || "";
+            if (lotHidden) lotHidden.value = payload.parsed.lot_number || "";
+            if (expiryHidden) expiryHidden.value = payload.parsed.expiry_date || "";
+          }
+          setStatus("Barcode parsed but product mapping not found.", true);
+        }
+      }
+
+      function scheduleLookup() {
+        const raw = barcodeInput.value.trim();
+        if (raw.length < 8) return;
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(function () { lookup(raw); }, 150);
+      }
+
+      barcodeInput.addEventListener("input", scheduleLookup);
+      barcodeInput.addEventListener("change", scheduleLookup);
+      barcodeInput.addEventListener("blur", scheduleLookup);
+      barcodeInput.addEventListener("keydown", function (event) {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        lookup(barcodeInput.value.trim());
+      });
+    });
+  </script>
   {% if location_selection_required %}
   <script>
     document.addEventListener("DOMContentLoaded", function() {

@@ -6,15 +6,97 @@
     <meta charset="UTF-8">
     <title>Manage Product Codes</title>
     <link rel="stylesheet" href="{% static 'inventory/styles.css' %}">
+    <style>
+        .card-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+        .help-modal-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #e4b200;
+            background: #fff8d6;
+            color: #5a4700;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .help-modal-trigger:hover {
+            background: #ffefad;
+        }
+        .help-bulb-icon {
+            width: 18px;
+            height: 18px;
+            flex: 0 0 auto;
+        }
+        .help-image-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.65);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .help-image-modal.open {
+            display: flex;
+        }
+        .help-image-modal-content {
+            position: relative;
+            width: min(1200px, 96vw);
+            max-height: 92vh;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            padding: 12px;
+        }
+        .help-image-modal-content img {
+            width: 100%;
+            height: auto;
+            max-height: calc(92vh - 80px);
+            object-fit: contain;
+            display: block;
+            border-radius: 8px;
+        }
+        .help-image-close {
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            border: none;
+            background: #fff;
+            color: #222;
+            font-size: 28px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+    </style>
 </head>
 <body>
     {% include "includes/navbar.html" %}
 
     <div class="dashboard-container">
+        {% if messages %}
+        <div class="card">
+            <ul>
+                {% for message in messages %}
+                <li class="{{ message.tags }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
         <div class="card form-card">
             <h2>{% if editing %}Edit Product{% else %}Add Product{% endif %}</h2>
             <form method="post">
                 {% csrf_token %}
+                <input type="hidden" name="action" value="save_product">
                 {% if editing %}
                     <input type="hidden" name="product_id" value="{{ editing.id }}">
                 {% endif %}
@@ -28,8 +110,147 @@
             </form>
         </div>
 
+        {% if editing %}
+        <div class="card form-card">
+            <h2>Manage Barcode / Identifier Mappings for {{ editing.name }}</h2>
+            <p><strong>Product UUID:</strong> {{ editing.uuid }}</p>
+
+            <h3>Product Identifiers</h3>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_identifier">
+                <input type="hidden" name="target_product_id" value="{{ editing.id }}">
+                <p>
+                    <label for="id_identifier_type">Identifier Type</label>
+                    <select id="id_identifier_type" name="identifier_type" required>
+                        <option value="">-- Select type --</option>
+                        {% for value,label in identifier_type_choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </p>
+                <p>
+                    <label for="id_identifier_value">Identifier Value</label>
+                    <input id="id_identifier_value" type="text" name="identifier_value" required>
+                </p>
+                <p>
+                    <label for="id_identifier_supplier_name">Supplier Name (optional)</label>
+                    <input id="id_identifier_supplier_name" type="text" name="identifier_supplier_name">
+                </p>
+                <p>
+                    <label><input type="checkbox" name="is_preferred"> Preferred</label>
+                </p>
+                <button type="submit" class="btn btn-primary">Save Identifier</button>
+            </form>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Value</th>
+                        <th>Supplier</th>
+                        <th>Preferred</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for identifier in selected_identifiers %}
+                    <tr>
+                        <td>{{ identifier.get_identifier_type_display }}</td>
+                        <td>{{ identifier.identifier_value }}</td>
+                        <td>{{ identifier.supplier_name|default:"—" }}</td>
+                        <td>{% if identifier.is_preferred %}Yes{% else %}No{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4">No identifiers defined.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <h3>Barcode Aliases</h3>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_barcode_alias">
+                <input type="hidden" name="target_product_id" value="{{ editing.id }}">
+                <p>
+                    <label for="id_barcode_type">Barcode Type</label>
+                    <select id="id_barcode_type" name="barcode_type" required>
+                        {% for value,label in barcode_type_choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </p>
+                <p>
+                    <label for="id_alias_identifier_type">Alias Identifier Type</label>
+                    <select id="id_alias_identifier_type" name="alias_identifier_type" required>
+                        <option value="">-- Select type --</option>
+                        {% for value,label in alias_identifier_type_choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </p>
+                <p>
+                    <label for="id_alias_identifier_value">Alias Identifier Value</label>
+                    <input id="id_alias_identifier_value" type="text" name="alias_identifier_value" required>
+                </p>
+                <p>
+                    <label for="id_raw_barcode_sample">Raw Barcode Sample (optional)</label>
+                    <input id="id_raw_barcode_sample" type="text" name="raw_barcode_sample">
+                </p>
+                <p>
+                    <label for="id_alias_supplier_name">Supplier Name (optional)</label>
+                    <input id="id_alias_supplier_name" type="text" name="alias_supplier_name">
+                </p>
+                <button type="submit" class="btn btn-primary">Save Barcode Alias</button>
+            </form>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Barcode Type</th>
+                        <th>Identifier Type</th>
+                        <th>Identifier Value</th>
+                        <th>Raw Sample</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alias in selected_aliases %}
+                    <tr>
+                        <td>{% if alias.is_active %}Active{% else %}Inactive{% endif %}</td>
+                        <td>{{ alias.get_barcode_type_display }}</td>
+                        <td>{{ alias.get_identifier_type_display }}</td>
+                        <td>{{ alias.identifier_value }}</td>
+                        <td>{{ alias.raw_barcode_sample|default:"—" }}</td>
+                        <td>
+                            <form method="post" style="margin:0;">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="toggle_barcode_alias">
+                                <input type="hidden" name="alias_id" value="{{ alias.id }}">
+                                <button type="submit" class="btn btn-small">
+                                    {% if alias.is_active %}Deactivate{% else %}Activate{% endif %}
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6">No barcode aliases defined.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
         <div class="card table-card">
-            <h2>Product Codes</h2>
+            <div class="card-header-row">
+                <h2>Product Codes</h2>
+                <button type="button" class="help-modal-trigger" id="show-barcode-help">
+                    <svg class="help-bulb-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path fill="#f4c500" d="M12 2a7 7 0 0 0-4.77 12.13c.7.66 1.16 1.52 1.32 2.45l.1.57h6.7l.1-.57a4.3 4.3 0 0 1 1.32-2.45A7 7 0 0 0 12 2zm-3 16h6v1.5a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 19.5V18z"/>
+                    </svg>
+                    <span>Show me how</span>
+                </button>
+            </div>
             <table>
                 <thead>
                     <tr>
@@ -64,5 +285,52 @@
             </table>
         </div>
     </div>
+    <div class="help-image-modal" id="barcode-help-modal" aria-hidden="true">
+        <div class="help-image-modal-content" role="dialog" aria-modal="true" aria-label="Barcode mapping guide">
+            <button type="button" class="help-image-close" id="barcode-help-close" aria-label="Close help image">&times;</button>
+            <img id="barcode-help-image" src="{% url 'inventory:barcode_mapping_guide_image' %}" alt="Barcode mapping guide">
+        </div>
+    </div>
+    <script>
+        (function () {
+            const openBtn = document.getElementById("show-barcode-help");
+            const modal = document.getElementById("barcode-help-modal");
+            const closeBtn = document.getElementById("barcode-help-close");
+            const helpImage = document.getElementById("barcode-help-image");
+            if (!openBtn || !modal || !closeBtn || !helpImage) return;
+
+            const imageCandidates = [
+                "{% url 'inventory:barcode_mapping_guide_image' %}",
+                "/static/inventory/images/barcode_mapping.png",
+                "/static/inventory/images/barcode_mapping.9bbeb92d7ae7.png"
+            ];
+            let imageCandidateIndex = 0;
+
+            helpImage.addEventListener("error", function () {
+                imageCandidateIndex += 1;
+                if (imageCandidateIndex < imageCandidates.length) {
+                    helpImage.src = imageCandidates[imageCandidateIndex];
+                }
+            });
+
+            function openModal() {
+                modal.classList.add("open");
+                modal.setAttribute("aria-hidden", "false");
+            }
+            function closeModal() {
+                modal.classList.remove("open");
+                modal.setAttribute("aria-hidden", "true");
+            }
+
+            openBtn.addEventListener("click", openModal);
+            closeBtn.addEventListener("click", closeModal);
+            modal.addEventListener("click", function (event) {
+                if (event.target === modal) closeModal();
+            });
+            document.addEventListener("keydown", function (event) {
+                if (event.key === "Escape") closeModal();
+            });
+        })();
+    </script>
 </body>
 </html>

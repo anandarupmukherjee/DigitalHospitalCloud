@@ -14,7 +14,17 @@ from inventory.location_utils import (
     coerce_location_id,
 )
 from services.data_collection.data_collection import parse_barcode_data
+from services.data_collection.barcode_resolution import parse_expiry_date, resolve_product_from_barcode
 from services.data_storage.models import Product, ProductItem, StockRegistration
+
+
+def _find_product_by_ref(ref):
+    value = (ref or "").strip()
+    if not value:
+        return None
+    if value.isdigit():
+        return Product.objects.filter(id=int(value)).first()
+    return Product.objects.filter(uuid=value).first()
 
 
 @login_required
@@ -57,43 +67,22 @@ def register_stock(request):
             messages.error(request, "Scan a barcode to register stock.", extra_tags="register_stock")
             return redirect("data_collection_3:register_stock")
 
-        parsed = parse_barcode_data(raw_barcode)
-        product_code = ""
-        lot_number = ""
-        expiry_str = ""
+        parsed = parse_barcode_data(raw_barcode) or {}
+        resolution = resolve_product_from_barcode(parsed, raw_barcode)
+        product = resolution["product"]
+        lot_number = (parsed.get("lot_number") or "").strip()
+        expiry_date = parse_expiry_date((parsed.get("expiry_date") or "").strip())
 
-        if parsed:
-            product_code = (parsed.get("product_code") or "").strip()
-            lot_number = (parsed.get("lot_number") or "").strip()
-            expiry_str = (parsed.get("expiry_date") or "").strip()
-        else:
-            product_code = raw_barcode
-
-        expiry_date = None
-        if expiry_str:
-            for fmt in ("%d.%m.%Y", "%Y-%m-%d"):
-                try:
-                    expiry_date = datetime.datetime.strptime(expiry_str, fmt).date()
-                    break
-                except ValueError:
-                    continue
-
-        search_codes = []
-        candidates = [product_code, raw_barcode]
-        for code in candidates:
-            if not code:
-                continue
-            search_codes.append(code)
-            if code.isdigit():
-                search_codes.append(code.lstrip("0"))
-
-        product = None
-        for code in search_codes:
-            if not code:
-                continue
-            product = Product.objects.filter(product_code__iexact=code).first()
-            if product:
-                break
+        if not product:
+            selected_uuid = (request.POST.get("resolved_product_uuid") or "").strip()
+            if selected_uuid:
+                product = _find_product_by_ref(selected_uuid)
+                if product:
+                    resolution["source"] = "frontend_resolved_uuid"
+                if product and not lot_number:
+                    lot_number = (request.POST.get("lot_number") or "").strip()
+                if product and not expiry_date:
+                    expiry_date = parse_expiry_date((request.POST.get("expiry_date") or "").strip())
 
         if not product:
             messages.error(request, "No product matches the scanned barcode.", extra_tags="register_stock")
@@ -128,6 +117,8 @@ def register_stock(request):
                 user=request.user,
                 location_id=selected_location_id,
                 barcode=raw_barcode,
+                resolved_product_uuid=product.uuid,
+                resolution_source=resolution.get("source"),
                 lot_number=lot_number or item.lot_number,
                 expiry_date=expiry_date or item.expiry_date,
             )

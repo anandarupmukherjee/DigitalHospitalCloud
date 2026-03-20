@@ -3,6 +3,7 @@ from collections import defaultdict
 import csv
 import io
 from datetime import timedelta
+from pathlib import Path
 
 from django import forms
 from django.contrib import messages
@@ -12,7 +13,7 @@ from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.timezone import now
 from django.db import transaction
-from django.http import Http404
+from django.http import FileResponse, Http404
 from django.urls import reverse_lazy
 
 from inventory.access_control import group_required
@@ -27,6 +28,7 @@ from stock_control.module_loader import module_flags as get_module_flags
 LEGACY_STAFF_ROLE = "Leica Staff"
 from services.analysis.analysis import get_dashboard_data
 from services.data_collection.data_collection import parse_barcode_data
+from services.data_collection.barcode_resolution import resolve_product_from_barcode
 from services.data_collection_1.stock_admin import (
     delete_lot as _delete_lot,
     stock_admin as _stock_admin,
@@ -37,6 +39,8 @@ from services.data_collection_2.create_withdrawal import (
 from services.data_storage.models import (
     Product,
     ProductItem,
+    ProductIdentifier,
+    ProductBarcodeAlias,
     PurchaseOrder,
     Supplier,
     Location,
@@ -246,26 +250,9 @@ def product_list(request):
     products_qs = Product.objects.select_related("supplier_ref", "location").prefetch_related("items")
 
     if barcode_value:
-        parsed = parse_barcode_data(barcode_value)
-        product_code = ""
-        if parsed:
-            product_code = (parsed.get("product_code") or "").strip()
-        else:
-            product_code = barcode_value
-
-        lookup_codes = []
-        for code in (product_code, barcode_value):
-            if not code:
-                continue
-            lookup_codes.append(code)
-            if code.isdigit():
-                lookup_codes.append(code.lstrip("0"))
-
-        matched_product = None
-        for code in lookup_codes:
-            matched_product = Product.objects.filter(product_code__iexact=code).first()
-            if matched_product:
-                break
+        parsed = parse_barcode_data(barcode_value) or {}
+        resolution = resolve_product_from_barcode(parsed, barcode_value)
+        matched_product = resolution.get("product")
         if matched_product:
             products = products_qs.filter(pk=matched_product.pk)
         else:
@@ -669,18 +656,118 @@ def manage_product_codes(request):
         product_instance = get_object_or_404(Product, pk=product_id)
 
     if request.method == "POST":
-        product_instance = None
-        if request.POST.get("product_id"):
-            product_instance = get_object_or_404(Product, pk=request.POST["product_id"])
-        form = ProductForm(request.POST, instance=product_instance)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Product saved successfully.")
-            return redirect('inventory:manage_product_codes')
+        action = request.POST.get("action", "save_product")
+        if action == "save_product":
+            product_instance = None
+            if request.POST.get("product_id"):
+                product_instance = get_object_or_404(Product, pk=request.POST["product_id"])
+            form = ProductForm(request.POST, instance=product_instance)
+            if form.is_valid():
+                saved = form.save()
+                messages.success(request, "Product saved successfully.")
+                return redirect(f"{reverse_lazy('inventory:manage_product_codes')}?product_id={saved.id}")
+        elif action == "add_identifier":
+            target = get_object_or_404(Product, pk=request.POST.get("target_product_id"))
+            identifier_type = (request.POST.get("identifier_type") or "").strip().upper()
+            identifier_value = (request.POST.get("identifier_value") or "").strip()
+            supplier_name = (request.POST.get("identifier_supplier_name") or "").strip() or None
+            preferred = (request.POST.get("is_preferred") == "on")
+            if not (identifier_type and identifier_value):
+                messages.error(request, "Identifier type and value are required.")
+            else:
+                conflict = ProductIdentifier.objects.filter(
+                    identifier_type=identifier_type,
+                    identifier_value=identifier_value,
+                ).exclude(product=target).first()
+                if conflict:
+                    messages.error(
+                        request,
+                        f"Identifier {identifier_type}:{identifier_value} is already mapped to {conflict.product.name}.",
+                    )
+                else:
+                    ProductIdentifier.objects.update_or_create(
+                        product=target,
+                        identifier_type=identifier_type,
+                        identifier_value=identifier_value,
+                        defaults={"supplier_name": supplier_name, "is_preferred": preferred},
+                    )
+                    messages.success(request, "Product identifier saved.")
+            return redirect(f"{reverse_lazy('inventory:manage_product_codes')}?product_id={target.id}")
+        elif action == "add_barcode_alias":
+            target = get_object_or_404(Product, pk=request.POST.get("target_product_id"))
+            barcode_type = (request.POST.get("barcode_type") or "UNKNOWN").strip().upper()
+            identifier_type = (request.POST.get("alias_identifier_type") or "").strip().upper()
+            identifier_value = (request.POST.get("alias_identifier_value") or "").strip()
+            raw_sample = (request.POST.get("raw_barcode_sample") or "").strip() or None
+            supplier_name = (request.POST.get("alias_supplier_name") or "").strip() or None
+            if not (identifier_type and identifier_value):
+                messages.error(request, "Alias identifier type and value are required.")
+            else:
+                if raw_sample and identifier_type in {
+                    ProductBarcodeAlias.TYPE_GTIN,
+                    ProductBarcodeAlias.TYPE_PARSED_PRODUCT_CODE,
+                    ProductBarcodeAlias.TYPE_RAW_BARCODE,
+                }:
+                    parsed_sample = parse_barcode_data(raw_sample) or {}
+                    expected_values = {
+                        ProductBarcodeAlias.TYPE_GTIN: (parsed_sample.get("gtin") or "").strip(),
+                        ProductBarcodeAlias.TYPE_PARSED_PRODUCT_CODE: (
+                            parsed_sample.get("raw_product_code")
+                            or parsed_sample.get("product_code")
+                            or parsed_sample.get("normalized_product_code")
+                            or ""
+                        ).strip(),
+                        ProductBarcodeAlias.TYPE_RAW_BARCODE: raw_sample.strip(),
+                    }
+                    expected_value = expected_values.get(identifier_type, "")
+                    if expected_value and identifier_value != expected_value:
+                        messages.error(
+                            request,
+                            (
+                                f"Alias value mismatch for {identifier_type}. "
+                                f"From sample barcode expected '{expected_value}', got '{identifier_value}'."
+                            ),
+                        )
+                        return redirect(f"{reverse_lazy('inventory:manage_product_codes')}?product_id={target.id}")
+                conflict = ProductBarcodeAlias.objects.filter(
+                    identifier_type=identifier_type,
+                    identifier_value=identifier_value,
+                ).exclude(product=target).first()
+                if conflict:
+                    messages.error(
+                        request,
+                        f"Alias {identifier_type}:{identifier_value} is already mapped to {conflict.product.name}.",
+                    )
+                else:
+                    ProductBarcodeAlias.objects.update_or_create(
+                        identifier_type=identifier_type,
+                        identifier_value=identifier_value,
+                        defaults={
+                            "product": target,
+                            "barcode_type": barcode_type,
+                            "raw_barcode_sample": raw_sample,
+                            "supplier_name": supplier_name,
+                            "is_active": True,
+                            "created_by": request.user,
+                        },
+                    )
+                    messages.success(request, "Barcode alias saved.")
+            return redirect(f"{reverse_lazy('inventory:manage_product_codes')}?product_id={target.id}")
+        elif action == "toggle_barcode_alias":
+            alias = get_object_or_404(ProductBarcodeAlias, pk=request.POST.get("alias_id"))
+            alias.is_active = not alias.is_active
+            alias.save(update_fields=["is_active", "updated_at"])
+            messages.success(request, "Barcode alias status updated.")
+            return redirect(f"{reverse_lazy('inventory:manage_product_codes')}?product_id={alias.product_id}")
     else:
         form = ProductForm(instance=product_instance)
 
     products = Product.objects.select_related("supplier_ref", "location").order_by("product_code")
+    selected_identifiers = []
+    selected_aliases = []
+    if product_instance:
+        selected_identifiers = list(product_instance.identifiers.order_by("identifier_type", "identifier_value"))
+        selected_aliases = list(product_instance.barcode_aliases.order_by("-is_active", "identifier_type", "identifier_value"))
     return render(
         request,
         "inventory/manage_product_codes.html",
@@ -688,8 +775,22 @@ def manage_product_codes(request):
             "form": form,
             "products": products,
             "editing": product_instance,
+            "selected_identifiers": selected_identifiers,
+            "selected_aliases": selected_aliases,
+            "identifier_type_choices": ProductIdentifier.IDENTIFIER_TYPE_CHOICES,
+            "barcode_type_choices": ProductBarcodeAlias.BARCODE_TYPE_CHOICES,
+            "alias_identifier_type_choices": ProductBarcodeAlias.IDENTIFIER_TYPE_CHOICES,
         },
     )
+
+
+@login_required
+@user_passes_test(is_admin, login_url='inventory:dashboard')
+def barcode_mapping_guide_image(request):
+    image_path = Path(__file__).resolve().parents[1] / "static" / "inventory" / "images" / "barcode_mapping.png"
+    if not image_path.exists():
+        raise Http404("Guide image not found.")
+    return FileResponse(open(image_path, "rb"), content_type="image/png")
 
 
 @login_required

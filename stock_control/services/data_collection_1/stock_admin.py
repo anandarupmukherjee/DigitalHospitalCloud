@@ -1,9 +1,9 @@
 from django.shortcuts import render, get_object_or_404
 from django.utils.timezone import now
-from django.db.models import F
 import datetime
 from django.utils import timezone
 from services.data_collection.data_collection import parse_barcode_data
+from services.data_collection.barcode_resolution import resolve_product_from_barcode
 from services.data_storage.models import Product, ProductItem, Withdrawal, Supplier
 from inventory.forms import ProductForm, ProductItemForm
 from django.shortcuts import redirect
@@ -26,7 +26,6 @@ def stock_admin(request, product_id=None):
         if barcode_data:
             print("[StockAdmin] Parsed barcode data:", barcode_data)
             barcode_parsed_code = barcode_data.get("raw_product_code") or barcode_data.get("product_code")
-            barcode_normalized = barcode_data.get("normalized_product_code")
             parsed_lot = barcode_data.get("lot_number")
             parsed_expiry = barcode_data.get("expiry_date")
             if barcode_data.get("product_code"):
@@ -34,19 +33,10 @@ def stock_admin(request, product_id=None):
 
             product_form_initial["product_code"] = barcode_data.get("raw_product_code") or barcode_data.get("product_code") or ""
 
-            candidate_codes = _candidate_codes(
-                barcode_parsed_code,
-                barcode_normalized,
-                barcode_data.get("product_code"),
-                barcode_data.get("raw_product_code"),
-                barcode_data.get("normalized_product_code"),
-            )
-            print("[StockAdmin] Candidate codes:", candidate_codes)
-            for candidate in candidate_codes:
-                editing_product = Product.objects.filter(product_code__iexact=candidate).first()
-                if editing_product:
-                    print("[StockAdmin] Matched product via code:", candidate)
-                    break
+            resolution = resolve_product_from_barcode(barcode_data, raw_barcode)
+            editing_product = resolution["product"]
+            if editing_product:
+                print("[StockAdmin] Matched product via resolver:", resolution.get("source"))
             # Fallback: locate product via lot number if code lookup failed
             if not editing_product and parsed_lot:
                 lot_match = ProductItem.objects.select_related("product").filter(lot_number__iexact=parsed_lot).first()
@@ -155,14 +145,3 @@ def delete_lot(request, item_id):
         )
         item.delete()
         return redirect('data_collection_1:stock_admin')
-def _candidate_codes(*values):
-    seen = []
-    for value in values:
-        if not value:
-            continue
-        if value not in seen:
-            seen.append(value)
-        stripped = value.lstrip("0")
-        if stripped and stripped != value and stripped not in seen:
-            seen.append(stripped)
-    return seen

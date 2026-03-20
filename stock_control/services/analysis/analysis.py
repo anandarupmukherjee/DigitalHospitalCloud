@@ -1,13 +1,21 @@
 import json
-import pandas as pd
 from datetime import timedelta
 from django.utils.timezone import now
 from django.shortcuts import render
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
 import datetime
 from django.db.models import Count, Sum
 from django.db.models.functions import Coalesce
 from services.data_storage.models import Product, ProductItem, Withdrawal, PurchaseOrder, Supplier, Location
+
+try:
+    import pandas as pd
+except Exception:  # pragma: no cover - optional dependency
+    pd = None
+
+try:
+    from statsmodels.tsa.holtwinters import ExponentialSmoothing
+except Exception:  # pragma: no cover - optional dependency
+    ExponentialSmoothing = None
 
 def get_dashboard_data():
     # 1. Stock Level Status
@@ -166,14 +174,20 @@ def inventory_analysis_forecasting(request):
     date_labels = [day.strftime("%b %d") for day in recent_dates]
 
     # === DataFrame for SMA & Forecast ===
-    df = pd.DataFrame({"date": recent_dates, "withdrawals": withdrawal_counts}).set_index("date").asfreq("D", fill_value=0)
-    df["withdrawals"] = pd.to_numeric(df["withdrawals"], errors="coerce").fillna(0)
-    df["SMA_7"] = df["withdrawals"].rolling(window=7, min_periods=1).mean()
-    df["SMA_14"] = df["withdrawals"].rolling(window=14, min_periods=1).mean()
+    if pd is not None:
+        df = pd.DataFrame({"date": recent_dates, "withdrawals": withdrawal_counts}).set_index("date").asfreq("D", fill_value=0)
+        df["withdrawals"] = pd.to_numeric(df["withdrawals"], errors="coerce").fillna(0)
+        df["SMA_7"] = df["withdrawals"].rolling(window=7, min_periods=1).mean()
+        df["SMA_14"] = df["withdrawals"].rolling(window=14, min_periods=1).mean()
+        sma_7_values = df["SMA_7"].fillna(0).tolist()
+        sma_14_values = df["SMA_14"].fillna(0).tolist()
+    else:
+        sma_7_values = withdrawal_counts
+        sma_14_values = withdrawal_counts
 
     # === Exponential Smoothing Forecast ===
     forecast_values = [0] * 7
-    if df["withdrawals"].sum() > 0:
+    if pd is not None and ExponentialSmoothing is not None and sum(withdrawal_counts) > 0:
         model = ExponentialSmoothing(df["withdrawals"], trend="add", seasonal=None, damped_trend=True)
         fitted = model.fit()
         forecast_values = [round(val, 2) for val in fitted.forecast(7).tolist()]
@@ -223,8 +237,8 @@ def inventory_analysis_forecasting(request):
         "stock_thresholds": json.dumps(stock_thresholds),
         "date_labels": json.dumps(date_labels),
         "withdrawal_counts": json.dumps(withdrawal_counts),
-        "sma_7": json.dumps(df["SMA_7"].fillna(0).tolist()),
-        "sma_14": json.dumps(df["SMA_14"].fillna(0).tolist()),
+        "sma_7": json.dumps(sma_7_values),
+        "sma_14": json.dumps(sma_14_values),
         "forecast_dates": json.dumps(forecast_dates),
         "forecast_values": json.dumps(forecast_values),
         "lead_times": json.dumps(lead_times),

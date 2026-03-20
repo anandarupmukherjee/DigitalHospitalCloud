@@ -92,11 +92,6 @@
         function buildLookupUrls(rawBarcode) {
             const encoded = encodeURIComponent((rawBarcode || "").trim());
             const urls = [];
-            try {
-                urls.push(new URL(`../data/get-product-by-barcode/?barcode=${encoded}`, window.location.href).toString());
-            } catch (e) {
-                // Ignore URL construction issues and continue with static fallbacks.
-            }
             urls.push(buildAppUrl(`/data/get-product-by-barcode/?barcode=${encoded}`));
             urls.push(`/data/get-product-by-barcode/?barcode=${encoded}`);
             if (window.location && window.location.pathname) {

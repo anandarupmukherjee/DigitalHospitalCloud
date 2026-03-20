@@ -4,6 +4,7 @@ from decimal import Decimal
 from datetime import date, timedelta
 from django.utils import timezone
 from django.utils.timezone import now
+import uuid
 
 
 class Supplier(models.Model):
@@ -29,7 +30,8 @@ class Product(models.Model):
         ('LEICA', 'Leica'),
         ('THIRD_PARTY', 'Third Party'),
     ]
-    product_code = models.CharField(max_length=50, unique=True)
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
+    product_code = models.CharField(max_length=50, unique=True, null=True, blank=True)
     name = models.CharField(max_length=255)
     supplier = models.CharField(max_length=20, choices=SUPPLIER_CHOICES, default='LEICA')
     supplier_ref = models.ForeignKey(
@@ -50,7 +52,9 @@ class Product(models.Model):
     lead_time = models.DurationField(default=timedelta(days=1), help_text="Lead time (e.g., 1 day, 2 hours)")
 
     def __str__(self):
-        return f"{self.product_code} - {self.name}"
+        if self.product_code:
+            return f"{self.product_code} - {self.name}"
+        return self.name
 
     def get_full_items_in_stock(self):
         return int(sum(item.current_stock for item in self.items.all()))
@@ -94,6 +98,121 @@ class ProductItem(models.Model):
         return sum(item.accumulated_partial for item in self.items.all())
 
 
+class ProductIdentifier(models.Model):
+    TYPE_INTERNAL_CODE = "INTERNAL_CODE"
+    TYPE_GTIN = "GTIN"
+    TYPE_SUPPLIER_CODE = "SUPPLIER_CODE"
+    TYPE_NAME = "NAME"
+    TYPE_SHORT_NAME = "SHORT_NAME"
+    TYPE_LEGACY_CODE = "LEGACY_CODE"
+    TYPE_OTHER = "OTHER"
+
+    IDENTIFIER_TYPE_CHOICES = [
+        (TYPE_INTERNAL_CODE, "Internal Code"),
+        (TYPE_GTIN, "GTIN"),
+        (TYPE_SUPPLIER_CODE, "Supplier Code"),
+        (TYPE_NAME, "Name"),
+        (TYPE_SHORT_NAME, "Short Name"),
+        (TYPE_LEGACY_CODE, "Legacy Code"),
+        (TYPE_OTHER, "Other"),
+    ]
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="identifiers")
+    identifier_type = models.CharField(max_length=32, choices=IDENTIFIER_TYPE_CHOICES)
+    identifier_value = models.CharField(max_length=255)
+    supplier_name = models.CharField(max_length=100, blank=True, null=True)
+    is_preferred = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["identifier_type", "identifier_value"],
+                name="uniq_product_identifier_type_value",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["identifier_type", "identifier_value"]),
+        ]
+
+    def __str__(self):
+        return f"{self.identifier_type}:{self.identifier_value} -> {self.product_id}"
+
+    def save(self, *args, **kwargs):
+        self.identifier_value = (self.identifier_value or "").strip()
+        self.identifier_type = (self.identifier_type or "").strip().upper()
+        if self.supplier_name:
+            self.supplier_name = self.supplier_name.strip()
+        super().save(*args, **kwargs)
+
+
+class ProductBarcodeAlias(models.Model):
+    BARCODE_3PR = "3PR"
+    BARCODE_GS1 = "GS1"
+    BARCODE_GS1_BRACKETED = "GS1_BRACKETED"
+    BARCODE_QR = "QR"
+    BARCODE_UNKNOWN = "UNKNOWN"
+
+    BARCODE_TYPE_CHOICES = [
+        (BARCODE_3PR, "3PR"),
+        (BARCODE_GS1, "GS1"),
+        (BARCODE_GS1_BRACKETED, "GS1 Bracketed"),
+        (BARCODE_QR, "QR"),
+        (BARCODE_UNKNOWN, "Unknown"),
+    ]
+
+    TYPE_GTIN = "GTIN"
+    TYPE_PARSED_PRODUCT_CODE = "PARSED_PRODUCT_CODE"
+    TYPE_RAW_BARCODE = "RAW_BARCODE"
+    TYPE_SUPPLIER_CODE = "SUPPLIER_CODE"
+    TYPE_OTHER = "OTHER"
+
+    IDENTIFIER_TYPE_CHOICES = [
+        (TYPE_GTIN, "GTIN"),
+        (TYPE_PARSED_PRODUCT_CODE, "Parsed Product Code"),
+        (TYPE_RAW_BARCODE, "Raw Barcode"),
+        (TYPE_SUPPLIER_CODE, "Supplier Code"),
+        (TYPE_OTHER, "Other"),
+    ]
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="barcode_aliases")
+    barcode_type = models.CharField(max_length=32, choices=BARCODE_TYPE_CHOICES, default=BARCODE_UNKNOWN)
+    identifier_type = models.CharField(max_length=32, choices=IDENTIFIER_TYPE_CHOICES)
+    identifier_value = models.CharField(max_length=255)
+    raw_barcode_sample = models.CharField(max_length=512, blank=True, null=True)
+    supplier_name = models.CharField(max_length=100, blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["identifier_type", "identifier_value"],
+                name="uniq_barcode_alias_type_value",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["identifier_type", "identifier_value"]),
+            models.Index(fields=["barcode_type", "identifier_type"]),
+        ]
+
+    def __str__(self):
+        return f"{self.identifier_type}:{self.identifier_value} -> {self.product_id}"
+
+    def save(self, *args, **kwargs):
+        self.identifier_value = (self.identifier_value or "").strip()
+        self.identifier_type = (self.identifier_type or "").strip().upper()
+        self.barcode_type = (self.barcode_type or self.BARCODE_UNKNOWN).strip().upper()
+        if self.supplier_name:
+            self.supplier_name = self.supplier_name.strip()
+        if self.raw_barcode_sample:
+            self.raw_barcode_sample = self.raw_barcode_sample.strip()
+        super().save(*args, **kwargs)
+
+
 
 class Withdrawal(models.Model):
     product_item = models.ForeignKey('ProductItem', on_delete=models.SET_NULL, null=True, blank=True)
@@ -122,6 +241,8 @@ class Withdrawal(models.Model):
         related_name="withdrawals",
     )
     barcode = models.CharField(max_length=128, blank=True, null=True)
+    resolved_product_uuid = models.UUIDField(null=True, blank=True, db_index=True)
+    resolution_source = models.CharField(max_length=64, blank=True, null=True)
 
     parts_withdrawn = models.PositiveIntegerField(
         default=0,
@@ -137,7 +258,7 @@ class Withdrawal(models.Model):
     def save(self, *args, **kwargs):
         if self.product_item:
             product = self.product_item.product
-            self.product_code = product.product_code
+            self.product_code = product.product_code or "N/A"
             self.product_name = product.name
             self.lot_number = self.product_item.lot_number
             self.expiry_date = self.product_item.expiry_date
@@ -166,6 +287,8 @@ class StockRegistration(models.Model):
         related_name="stock_registrations",
     )
     barcode = models.CharField(max_length=128, blank=True, null=True)
+    resolved_product_uuid = models.UUIDField(null=True, blank=True, db_index=True)
+    resolution_source = models.CharField(max_length=64, blank=True, null=True)
 
     product_code = models.CharField(max_length=50, default="N/A")
     product_name = models.CharField(max_length=255, default="Unnamed Product")
@@ -175,7 +298,7 @@ class StockRegistration(models.Model):
     def save(self, *args, **kwargs):
         if self.product_item:
             product = self.product_item.product
-            self.product_code = product.product_code
+            self.product_code = product.product_code or "N/A"
             self.product_name = product.name
             self.lot_number = self.product_item.lot_number
             if not self.expiry_date:
@@ -203,7 +326,7 @@ class PurchaseOrder(models.Model):
     def save(self, *args, **kwargs):
         if self.product_item:
             product = self.product_item.product
-            self.product_code = product.product_code
+            self.product_code = product.product_code or "N/A"
             self.product_name = product.name
             self.lot_number = self.product_item.lot_number
             self.expiry_date = self.product_item.expiry_date
