@@ -55,6 +55,7 @@ urlpatterns = [
     path('manage_locations/', views.manage_locations, name='manage_locations'),
     path('locations/<int:location_id>/products/', views.location_products, name='location_products'),
     path('manage_product_codes/', views.manage_product_codes, name='manage_product_codes'),
+    path('delete_products/', views.delete_products, name='delete_products'),
     path('manage_product_codes/barcode-guide-image/', views.barcode_mapping_guide_image, name='barcode_mapping_guide_image'),
     path('help/', views.help_page, name='help'),
 

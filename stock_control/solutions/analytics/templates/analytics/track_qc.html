@@ -1,0 +1,84 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Track QC</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+    {% include "includes/navbar.html" %}
+
+    <div class="dashboard-container">
+        <div class="card table-card wide-card">
+            <div class="card-header">
+                <h2>Track QC</h2>
+            </div>
+
+            {% if team_manager_scope and location_tracking_enabled %}
+              <p class="info-text">
+                Showing QC checks for locations:
+                {% if user_locations %}
+                  {{ user_locations|join:", " }}
+                {% else %}
+                  (no locations assigned)
+                {% endif %}
+              </p>
+            {% endif %}
+
+            <form method="get" class="filter-form" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px;">
+                <div>
+                    <label for="id_result">Result</label>
+                    <select name="result" id="id_result">
+                        {% for value, label in result_options.items %}
+                          <option value="{{ value }}" {% if selected_result == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="id_product_name">Product Name</label>
+                    <input type="text" id="id_product_name" name="product_name" value="{{ product_query }}" placeholder="Filter by product name">
+                </div>
+                <div>
+                    <label for="id_lot_number">Lot Number</label>
+                    <input type="text" id="id_lot_number" name="lot_number" value="{{ lot_query }}" placeholder="Filter by lot number">
+                </div>
+                <div style="display:flex; gap:8px; align-items:flex-end;">
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                    <a href="{% url 'analytics:track_qc' %}" class="btn btn-secondary">Reset</a>
+                </div>
+            </form>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>QC Done By</th>
+                            <th>Product</th>
+                            <th>Lot</th>
+                            <th>Result</th>
+                            <th>When</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for check in checks %}
+                        <tr>
+                            <td>{{ check.performed_by|default:"—" }}</td>
+                            <td>{{ check.product_item.product.name }}</td>
+                            <td>{{ check.product_item.lot_number }}</td>
+                            <td>{{ check.get_result_display|default:"Pending" }}</td>
+                            <td>{{ check.created_at|date:"Y-m-d H:i" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5">No quality checks found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

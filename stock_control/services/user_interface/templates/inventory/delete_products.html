@@ -1,0 +1,211 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Delete Product</title>
+  <link rel="stylesheet" type="text/css" href="{% static 'inventory/styles.css' %}">
+  <style>
+    .delete-product-table td,
+    .delete-product-table th {
+      vertical-align: middle;
+    }
+
+    .danger-button {
+      background-color: #b00020;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      cursor: pointer;
+    }
+
+    .danger-button:hover {
+      background-color: #8f001a;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .modal-card {
+      width: min(420px, calc(100vw - 32px));
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 16px;
+    }
+
+    .secondary-button {
+      background: #e5e7eb;
+      color: #111827;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      cursor: pointer;
+    }
+
+    .warning-copy {
+      color: #8f001a;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+  {% include "includes/navbar.html" %}
+
+  <div class="dashboard-container">
+    <div class="card table-card wide-card">
+      <h2>Delete Product</h2>
+      <p class="info-text">Deleting a product removes it from active use. Historical withdrawals, stock registrations, purchase-order records, and a product deletion archive remain available for audit.</p>
+
+      {% if messages %}
+        <div class="messages">
+          {% for message in messages %}
+            <p>{{ message }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="table-wrapper">
+        <table class="delete-product-table">
+          <thead>
+            <tr>
+              <th>Product Code</th>
+              <th>Name</th>
+              <th>Supplier</th>
+              <th>Location</th>
+              <th>Lots</th>
+              <th>Available Stock</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for product in products %}
+              <tr>
+                <td>{{ product.product_code|default:"—" }}</td>
+                <td>{{ product.name }}</td>
+                <td>{{ product.supplier_display }}</td>
+                <td>{% if product.location %}{{ product.location.name }}{% else %}—{% endif %}</td>
+                <td>{{ product.items.count }}</td>
+                <td>{{ product.get_available_stock }}</td>
+                <td>
+                  <button
+                    type="button"
+                    class="danger-button delete-product-trigger"
+                    data-product-id="{{ product.id }}"
+                    data-product-name="{{ product.name|escape }}"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="7">No products available.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="delete-product-modal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-card">
+      <h3>Confirm Product Deletion</h3>
+      <p class="warning-copy">This removes the product from this point forward. Historical transaction records stay extractable.</p>
+      <p id="delete-product-target"></p>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="product_id" id="delete-product-id">
+        <label for="delete-product-password">{{ password_form.password.label }}</label>
+        {{ password_form.password }}
+        {% if password_form.password.errors %}
+          <div class="errorlist">{{ password_form.password.errors }}</div>
+        {% endif %}
+        <div class="modal-actions">
+          <button type="button" class="secondary-button" id="delete-product-cancel">Cancel</button>
+          <button type="submit" class="danger-button">Confirm Delete</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const modal = document.getElementById("delete-product-modal");
+      const targetNode = document.getElementById("delete-product-target");
+      const productIdInput = document.getElementById("delete-product-id");
+      const cancelButton = document.getElementById("delete-product-cancel");
+      const passwordInput = document.getElementById("id_password");
+
+      function closeModal() {
+        if (!modal) {
+          return;
+        }
+        modal.classList.remove("show");
+        modal.setAttribute("aria-hidden", "true");
+        if (passwordInput) {
+          passwordInput.value = "";
+        }
+      }
+
+      document.querySelectorAll(".delete-product-trigger").forEach(function(button) {
+        button.addEventListener("click", function() {
+          if (!modal) {
+            return;
+          }
+          productIdInput.value = button.dataset.productId || "";
+          targetNode.textContent = `Product: ${button.dataset.productName || ""}`;
+          modal.classList.add("show");
+          modal.setAttribute("aria-hidden", "false");
+          if (passwordInput) {
+            passwordInput.focus();
+          }
+        });
+      });
+
+      if (cancelButton) {
+        cancelButton.addEventListener("click", closeModal);
+      }
+
+      if (modal) {
+        modal.addEventListener("click", function(event) {
+          if (event.target === modal) {
+            closeModal();
+          }
+        });
+      }
+
+      {% if password_form.errors %}
+        modal.classList.add("show");
+        modal.setAttribute("aria-hidden", "false");
+        {% if selected_product %}
+          productIdInput.value = "{{ selected_product.id }}";
+          targetNode.textContent = "Product: {{ selected_product.name|escapejs }}";
+        {% endif %}
+      {% endif %}
+    });
+  </script>
+</body>
+</html>

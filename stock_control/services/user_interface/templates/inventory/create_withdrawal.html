@@ -11,10 +11,8 @@
 
 
   <script src="{% static 'inventory/barcode_fetch.js' %}?v=20260320"></script>
-  <script src="{% static 'inventory/withdrawal_mode.js' %}"></script>
-  <script src="{% static 'inventory/manual_product_fetch.js' %}"></script>
+  <script src="{% static 'inventory/manual_product_fetch.js' %}?v=20260516c"></script>
   <script src="{% static 'inventory/mode_toggle.js' %}"></script>  
-  <script src="{% static 'inventory/unit_label_toggle.js' %}"></script>
   <script src="{% static 'inventory/part_calculation.js' %}"></script> 
 </head>
 {% with request.META.SCRIPT_NAME|default:'' as script_prefix %}
@@ -22,6 +20,16 @@
   <!-- Navigation Bar (your original nav code) -->
     <!-- Navigation Bar -->
     {% include "includes/navbar.html" %}
+
+  <div id="success-alert-overlay" class="floating-alert-overlay hidden">
+    <div class="floating-alert-window alert-success" role="alertdialog" aria-live="assertive">
+      <h3 class="floating-alert-title">Withdrawal Successful</h3>
+      <p class="floating-alert-message" id="success-alert-message">Withdrawal successful.</p>
+      <div class="floating-alert-actions">
+        <button type="button" class="floating-alert-button" id="success-alert-close">Close</button>
+      </div>
+    </div>
+  </div>
 
 
   <!-- Page Container -->
@@ -73,9 +81,16 @@
 
         <!-- Hidden field for product's units per quantity (used by JS for partial calcs) -->
         <input type="hidden" id="id_units_per_quantity" name="units_per_quantity" value="">
+        <input type="hidden" id="id_product_feature" value="">
+        <input type="hidden" id="id_accumulated_partial" value="0">
+        <input type="hidden" id="id_current_stock" value="0">
+        <input type="hidden" id="barcode_quantity_hidden" name="quantity" value="1">
+        <input type="hidden" id="barcode_withdrawal_type_hidden" name="withdrawal_type" value="unit">
+        <input type="hidden" id="barcode_parts_hidden" name="parts_withdrawn" value="0">
 
         <!-- Barcode Scanner Section (shown by default) -->
         <div id="barcode-section">
+          <p class="info-text">One scan submits one automatic withdrawal based on the lot setup.</p>
           <input type="hidden" id="parsed_product_code_hidden" name="product_code_from_barcode">
           <input type="hidden" id="resolved_product_uuid" name="resolved_product_uuid">
 
@@ -90,7 +105,19 @@
           <input type="text" id="parsed_product_code" readonly>
 
           <label>Lot Number:</label>
-          <input type="text" id="parsed_lot_number" readonly>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <input type="text" id="parsed_lot_number" readonly>
+            <a
+              id="barcode-qc-link"
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn btn-secondary"
+              style="display: none;"
+            >
+              New QC Check
+            </a>
+          </div>
 
           <label>Expiry Date:</label>
           <input type="text" id="parsed_expiry_date" readonly>
@@ -123,12 +150,32 @@
               <option value="{{ p.id }}">{{ p.name }}</option>
             {% endfor %}
           </select>
+
+          <label for="id_manual_lot_item">Select Lot:</label>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <select id="id_manual_lot_item" name="manual_lot_item_id">
+              <option value="">-- Select Lot --</option>
+            </select>
+            <a
+              id="manual-qc-link"
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn btn-secondary"
+              style="display: none;"
+            >
+              New QC Check
+            </a>
+          </div>
           
           <!-- NEW: Fetch Details Button
           <button type="button" id="fetch-manual-details" class="btn btn-secondary">Fetch Details</button> -->
 
           <label for="id_barcode_manual">Barcode (auto-filled):</label>
           <input type="text" id="id_barcode_manual" name="barcode_manual" readonly>
+
+          <label for="id_manual_expiry_display">Expiry Date:</label>
+          <input type="text" id="id_manual_expiry_display" readonly>
 
           <div id="manual-product-details">
             <p>Stock: <span id="manual-stock-display"></span></p>
@@ -137,177 +184,35 @@
         </div>
 
         
-        <input type="hidden" id="id_units_per_quantity" name="units_per_quantity">
+        <div id="manual-withdrawal-controls" style="display: none;">
+          <input type="hidden" id="id_manual_withdrawal_mode" name="withdrawal_mode" value="full">
+          <input type="hidden" id="id_manual_withdrawal_type" name="withdrawal_type" value="unit">
 
+          <p id="manual-withdrawal-behavior" class="info-text">
+            Select a product and lot to load the withdrawal behavior.
+          </p>
 
-        <!-- Withdrawal Mode Selection -->
-        <div class="withdrawal-mode-selection">
-          <label>
-            <input type="radio" name="withdrawal_mode" value="full" checked> Full Item Withdrawal
-          </label>
-          <label>
-            <input type="radio" name="withdrawal_mode" value="part"> Part of Item Withdrawal
-          </label>
+          <div id="full_item_section">
+            <label for="id_quantity">Full Items Withdrawal:</label>
+            {{ form.quantity }}  
+          </div>
+
+          <div id="part_item_section" style="display: none;">
+            <label for="id_parts_withdrawn">Parts Withdrawn:</label>
+            {{ form.parts_withdrawn }}
+            
+            <label for="id_full_items">Computed Withdrawal:</label>
+            <input type="text" id="id_full_items" name="full_items" value="0" readonly>
+
+            <label for="id_parts_remaining">Parts Remaining After Withdrawal:</label>
+            <input type="text" id="id_parts_remaining" name="parts_remaining" value="0" readonly>
+          </div>
         </div>
-
-        <!-- Full Item Withdrawal Section -->
-        <div id="full_item_section">
-          <label for="id_quantity">Full Items Withdrawal:</label>
-          {{ form.quantity }}  
-        </div>
-
-        <!-- Part Withdrawal Section (hidden by default) -->
-        <div id="part_item_section" style="display: none;">
-          <label for="id_parts_withdrawn">Parts Withdrawn:</label>
-          {{ form.parts_withdrawn }}
-          
-          <label for="id_full_items">Full Items (Computed):</label>
-          <input type="number" id="id_full_items" name="full_items" value="0" readonly>
-
-          <label for="id_parts_remaining">Parts Remaining:</label>
-          <input type="number" id="id_parts_remaining" name="parts_remaining" value="0" readonly>
-        </div>
-
-        <!-- Volume-based Section (new) -->
-        <div id="volume-withdrawal-section" style="display: none;">
-          <label for="id_volume_select">Volume to Withdraw (auto-generated increments):</label>
-          <select id="id_volume_select" name="volume_select">
-            <!-- Populated dynamically in scripts.js if product is volume -->
-          </select>
-        </div>
-
-        <!-- Withdrawal Type (unit/volume) -->
-        <label for="id_withdrawal_type">Withdrawal Type:</label>
-        {{ form.withdrawal_type }}
-        <span id="unit_label">units</span>
         
         <button type="submit" class="btn btn-primary">Submit Withdrawal</button>
       </form>
     </div>
   </div>
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      const barcodeInput = document.getElementById("id_barcode");
-      if (!barcodeInput) return;
-
-      const productNameInput = document.getElementById("id_product_name");
-      const productCodeVisible = document.getElementById("parsed_product_code");
-      const productCodeHidden = document.getElementById("parsed_product_code_hidden");
-      const resolvedProductUuid = document.getElementById("resolved_product_uuid");
-      const lotVisible = document.getElementById("parsed_lot_number");
-      const expiryVisible = document.getElementById("parsed_expiry_date");
-      const lotHidden = document.getElementById("lot_number_field");
-      const expiryHidden = document.getElementById("expiry_date_field");
-      const stockDisplay = document.getElementById("stock-display");
-      const unitsDisplay = document.getElementById("units-display");
-      const unitsPerQuantityInput = document.getElementById("id_units_per_quantity");
-      const lookupStatus = document.getElementById("barcode-lookup-status");
-
-      let timer = null;
-
-      function setStatus(msg, isError) {
-        if (!lookupStatus) return;
-        lookupStatus.textContent = msg || "";
-        lookupStatus.style.color = isError ? "#b00020" : "";
-      }
-
-      function clearFields() {
-        if (productNameInput) productNameInput.value = "";
-        if (productCodeVisible) productCodeVisible.value = "";
-        if (productCodeHidden) productCodeHidden.value = "";
-        if (resolvedProductUuid) resolvedProductUuid.value = "";
-        if (lotVisible) lotVisible.value = "";
-        if (expiryVisible) expiryVisible.value = "";
-        if (lotHidden) lotHidden.value = "";
-        if (expiryHidden) expiryHidden.value = "";
-        if (stockDisplay) stockDisplay.textContent = "";
-        if (unitsDisplay) unitsDisplay.textContent = "";
-        if (unitsPerQuantityInput) unitsPerQuantityInput.value = "";
-      }
-
-      function buildUrls(raw) {
-        const encoded = encodeURIComponent((raw || "").trim());
-        const urls = [];
-        try {
-          urls.push(new URL("../data/get-product-by-barcode/?barcode=" + encoded, window.location.href).toString());
-        } catch (e) {}
-        urls.push("/data/get-product-by-barcode/?barcode=" + encoded);
-        urls.push("/histopath/data/get-product-by-barcode/?barcode=" + encoded);
-        return [...new Set(urls)];
-      }
-
-      async function lookup(rawBarcode) {
-        const raw = (rawBarcode || "").trim();
-        if (!raw) return;
-        setStatus("Looking up barcode...", false);
-
-        const urls = buildUrls(raw);
-        let payload = null;
-        for (const url of urls) {
-          try {
-            const res = await fetch(url, { headers: { Accept: "application/json" } });
-            const contentType = (res.headers.get("content-type") || "").toLowerCase();
-            if (!contentType.includes("application/json")) continue;
-            payload = await res.json();
-            break;
-          } catch (e) {}
-        }
-
-        if (!payload) {
-          clearFields();
-          setStatus("Barcode lookup endpoint unreachable.", true);
-          return;
-        }
-
-        if (payload.resolved_product && !payload.mapping_required) {
-          const product = payload.resolved_product || {};
-          if (productNameInput) productNameInput.value = product.name || payload.name || "";
-          if (productCodeVisible) {
-            productCodeVisible.value = (payload.parsed && (payload.parsed.raw_product_code || payload.parsed.normalized_product_code)) || product.product_code || "";
-          }
-          if (productCodeHidden) {
-            productCodeHidden.value = (payload.parsed && (payload.parsed.raw_product_code || payload.parsed.normalized_product_code)) || product.product_code || "";
-          }
-          if (resolvedProductUuid) resolvedProductUuid.value = product.id || "";
-          if (lotVisible) lotVisible.value = (payload.parsed && payload.parsed.lot_number) || "";
-          if (expiryVisible) expiryVisible.value = (payload.parsed && payload.parsed.expiry_date) || "";
-          if (lotHidden) lotHidden.value = (payload.parsed && payload.parsed.lot_number) || "";
-          if (expiryHidden) expiryHidden.value = (payload.parsed && payload.parsed.expiry_date) || "";
-          if (stockDisplay) stockDisplay.textContent = payload.stock || payload.current_stock || "";
-          if (unitsDisplay) unitsDisplay.textContent = (payload.units_per_quantity ?? "");
-          if (unitsPerQuantityInput) unitsPerQuantityInput.value = (payload.units_per_quantity ?? "");
-          setStatus("Barcode resolved.", false);
-        } else {
-          clearFields();
-          if (payload.parsed) {
-            if (productCodeVisible) productCodeVisible.value = payload.parsed.raw_product_code || payload.parsed.normalized_product_code || "";
-            if (productCodeHidden) productCodeHidden.value = payload.parsed.raw_product_code || payload.parsed.normalized_product_code || "";
-            if (lotVisible) lotVisible.value = payload.parsed.lot_number || "";
-            if (expiryVisible) expiryVisible.value = payload.parsed.expiry_date || "";
-            if (lotHidden) lotHidden.value = payload.parsed.lot_number || "";
-            if (expiryHidden) expiryHidden.value = payload.parsed.expiry_date || "";
-          }
-          setStatus("Barcode parsed but product mapping not found.", true);
-        }
-      }
-
-      function scheduleLookup() {
-        const raw = barcodeInput.value.trim();
-        if (raw.length < 8) return;
-        if (timer) clearTimeout(timer);
-        timer = setTimeout(function () { lookup(raw); }, 150);
-      }
-
-      barcodeInput.addEventListener("input", scheduleLookup);
-      barcodeInput.addEventListener("change", scheduleLookup);
-      barcodeInput.addEventListener("blur", scheduleLookup);
-      barcodeInput.addEventListener("keydown", function (event) {
-        if (event.key !== "Enter") return;
-        event.preventDefault();
-        lookup(barcodeInput.value.trim());
-      });
-    });
-  </script>
   {% if location_selection_required %}
   <script>
     document.addEventListener("DOMContentLoaded", function() {
@@ -324,6 +229,33 @@
     });
   </script>
   {% endif %}
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const overlay = document.getElementById("success-alert-overlay");
+      const closeButton = document.getElementById("success-alert-close");
+      const messageNode = document.getElementById("success-alert-message");
+      if (!overlay || !messageNode) {
+        return;
+      }
+      const closeOverlay = function() {
+        overlay.classList.add("hidden");
+      };
+      if (closeButton) {
+        closeButton.addEventListener("click", closeOverlay);
+      }
+      overlay.addEventListener("click", function(event) {
+        if (event.target === overlay) {
+          closeOverlay();
+        }
+      });
+      {% for message in messages %}
+        {% if 'withdrawal_success' in message.tags %}
+          messageNode.textContent = "{{ message|escapejs }}";
+          overlay.classList.remove("hidden");
+        {% endif %}
+      {% endfor %}
+    });
+  </script>
 </body>
 </html>
 {% endwith %}

@@ -4,14 +4,21 @@ import uuid as uuid_lib
 
 from django.db.models import Q
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from services.data_collection.barcode_resolution import (
     normalize_identifier_value,
+    parse_expiry_date,
     resolve_product_from_barcode,
 )
-from services.data_storage.models import Product, ProductBarcodeAlias, ProductIdentifier
+from services.data_storage.models import Product, ProductBarcodeAlias, ProductIdentifier, ProductItem
 from inventory.roles import user_is_inventory_manager
+
+try:
+    from solutions.quality_control.models import QualityCheck
+except Exception:
+    QualityCheck = None
 
 AI_TERMINATORS = {"\x1d", "\x1e", "\x1f"}
 
@@ -210,6 +217,60 @@ def _product_display_label(product):
     return " | ".join(parts)
 
 
+def _pick_scanned_or_available_item(product, parsed):
+    item_qs = product.items.all()
+    lot_number = (parsed.get("lot_number") or "").strip()
+    expiry_date = parse_expiry_date((parsed.get("expiry_date") or "").strip())
+
+    if lot_number:
+        item_qs = item_qs.filter(lot_number__iexact=lot_number)
+    if expiry_date:
+        item_qs = item_qs.filter(expiry_date=expiry_date)
+
+    matched_item = item_qs.order_by("-expiry_date").first()
+    if matched_item:
+        return matched_item
+
+    return (
+        product.items.filter(expiry_date__gt=timezone.localdate())
+        .order_by("-expiry_date")
+        .first()
+    )
+
+
+def _get_latest_qc_status(item):
+    if not item or QualityCheck is None:
+        return {
+            "qc_passed": False,
+            "qc_status": "",
+            "qc_action_required": False,
+        }
+    latest_check = item.quality_checks.order_by("-created_at").first()
+    if latest_check and latest_check.result == "pass":
+        return {
+            "qc_passed": True,
+            "qc_status": "pass",
+            "qc_action_required": False,
+        }
+    if latest_check and latest_check.result == "fail":
+        return {
+            "qc_passed": False,
+            "qc_status": "fail",
+            "qc_action_required": True,
+        }
+    if latest_check:
+        return {
+            "qc_passed": False,
+            "qc_status": "pending",
+            "qc_action_required": True,
+        }
+    return {
+        "qc_passed": False,
+        "qc_status": "waiting",
+        "qc_action_required": True,
+    }
+
+
 @require_GET
 def parse_barcode(request):
     raw = request.GET.get("raw", "")
@@ -251,15 +312,22 @@ def get_product_by_barcode(request):
 
     # Backward compatibility payload expected by legacy JS.
     if product:
-        latest_item = product.items.order_by("-expiry_date").first()
+        latest_item = _pick_scanned_or_available_item(product, parsed)
+        expired_lot = bool(latest_item and latest_item.is_expired)
+        qc_status = _get_latest_qc_status(latest_item)
         response.update(
             {
                 "name": product.name,
                 "stock": str(latest_item.current_stock) if latest_item else "0",
-                "current_stock": str(latest_item.current_stock) if latest_item else "0",
+                "current_stock": str(product.get_available_stock()),
+                "lot_current_stock": str(latest_item.current_stock) if latest_item else "0",
                 "units_per_quantity": latest_item.units_per_quantity if latest_item else 1,
                 "product_feature": latest_item.product_feature if latest_item else "unit",
                 "product_code": product.product_code or "",
+                "expired_lot": expired_lot,
+                "expired_lot_message": "Lot has expired." if expired_lot else "",
+                "item_id": latest_item.id if latest_item else None,
+                **qc_status,
             }
         )
     else:
@@ -272,6 +340,12 @@ def get_product_by_barcode(request):
                 "product_feature": "",
                 "product_code": "",
                 "error": "Product not resolved",
+                "expired_lot": False,
+                "expired_lot_message": "",
+                "item_id": None,
+                "qc_passed": False,
+                "qc_status": "",
+                "qc_action_required": False,
             }
         )
 
@@ -288,16 +362,33 @@ def get_product_by_id(request):
     if not product:
         return JsonResponse({"error": "Product not found"}, status=404)
 
-    latest_item = product.items.order_by("-expiry_date").first()
+    available_items = list(
+        product.items.filter(current_stock__gt=0, expiry_date__gt=timezone.localdate())
+        .order_by("-expiry_date", "lot_number")
+    )
+    latest_item = available_items[0] if available_items else None
     response_data = {
         "id": str(product.uuid),
         "product_code": product.product_code or "",
         "name": product.name,
-        "current_stock": str(latest_item.current_stock) if latest_item else "0.00",
+        "current_stock": str(product.get_available_stock()),
         "units_per_quantity": latest_item.units_per_quantity if latest_item else 1,
         "product_feature": latest_item.product_feature if latest_item else "unit",
         "lot_number": latest_item.lot_number if latest_item else "",
         "expiry_date": latest_item.expiry_date.strftime("%Y-%m-%d") if latest_item and latest_item.expiry_date else "",
+        "lots": [
+            {
+                "item_id": item.id,
+                "lot_number": item.lot_number,
+                "expiry_date": item.expiry_date.strftime("%Y-%m-%d") if item.expiry_date else "",
+                "current_stock": str(item.current_stock),
+                "units_per_quantity": item.units_per_quantity,
+                "accumulated_partial": item.accumulated_partial,
+                "product_feature": item.product_feature,
+                **_get_latest_qc_status(item),
+            }
+            for item in available_items
+        ],
     }
     return JsonResponse(response_data, status=200)
 

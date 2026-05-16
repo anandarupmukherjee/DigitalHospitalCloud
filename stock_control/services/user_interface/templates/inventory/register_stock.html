@@ -12,6 +12,16 @@
 <body>
   {% include "includes/navbar.html" %}
 
+  <div id="floating-alert-overlay" class="floating-alert-overlay hidden">
+    <div class="floating-alert-window alert-error" role="alertdialog" aria-live="assertive">
+      <h3 class="floating-alert-title">Expired Lot</h3>
+      <p class="floating-alert-message" id="floating-alert-message">Lot has expired.</p>
+      <div class="floating-alert-actions">
+        <button type="button" class="floating-alert-button" id="floating-alert-close">Close</button>
+      </div>
+    </div>
+  </div>
+
   <div class="dashboard-container">
     <div class="card form-card">
       <h1>Register Stock</h1>
@@ -114,5 +124,32 @@
     });
   </script>
   {% endif %}
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const overlay = document.getElementById("floating-alert-overlay");
+      const closeButton = document.getElementById("floating-alert-close");
+      const messageNode = document.getElementById("floating-alert-message");
+      if (!overlay || !messageNode) {
+        return;
+      }
+      const closeOverlay = function() {
+        overlay.classList.add("hidden");
+      };
+      if (closeButton) {
+        closeButton.addEventListener("click", closeOverlay);
+      }
+      overlay.addEventListener("click", function(event) {
+        if (event.target === overlay) {
+          closeOverlay();
+        }
+      });
+      {% for message in register_messages %}
+        {% if 'expired_lot' in message.tags %}
+          messageNode.textContent = "{{ message|escapejs }}";
+          overlay.classList.remove("hidden");
+        {% endif %}
+      {% endfor %}
+    });
+  </script>
 </body>
 </html>

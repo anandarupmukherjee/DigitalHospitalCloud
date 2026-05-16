@@ -21,6 +21,59 @@
 
     window.__buildAppUrl = buildAppUrl;
 
+    function ensureFloatingAlert() {
+        let overlay = document.getElementById("floating-alert-overlay");
+        if (overlay) {
+            return overlay;
+        }
+
+        overlay = document.createElement("div");
+        overlay.id = "floating-alert-overlay";
+        overlay.className = "floating-alert-overlay hidden";
+        overlay.innerHTML = `
+            <div class="floating-alert-window alert-error" role="alertdialog" aria-live="assertive">
+                <h3 class="floating-alert-title">Expired Lot</h3>
+                <p class="floating-alert-message" id="floating-alert-message"></p>
+                <div class="floating-alert-actions">
+                    <button type="button" class="floating-alert-button" id="floating-alert-close">Close</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const closeButton = overlay.querySelector("#floating-alert-close");
+        if (closeButton) {
+            closeButton.addEventListener("click", function () {
+                overlay.classList.add("hidden");
+            });
+        }
+        overlay.addEventListener("click", function (event) {
+            if (event.target === overlay) {
+                overlay.classList.add("hidden");
+            }
+        });
+        return overlay;
+    }
+
+    function showFloatingAlert(message) {
+        const overlay = ensureFloatingAlert();
+        const messageNode = overlay.querySelector("#floating-alert-message");
+        if (messageNode) {
+            messageNode.textContent = message || "Lot has expired.";
+        }
+        overlay.classList.remove("hidden");
+    }
+
+    function hideFloatingAlert() {
+        const overlay = document.getElementById("floating-alert-overlay");
+        if (overlay) {
+            overlay.classList.add("hidden");
+        }
+    }
+
+    window.__showFloatingAlert = showFloatingAlert;
+    window.__hideFloatingAlert = hideFloatingAlert;
+
     document.addEventListener("DOMContentLoaded", function () {
         const barcodeInput = document.getElementById("id_barcode");
         const productNameInput = document.getElementById("id_product_name");
@@ -35,6 +88,7 @@
         const unitsDisplay = document.getElementById("units-display");
         const unitsPerQuantityInput = document.getElementById("id_units_per_quantity");
         const volumeSection = document.getElementById("volume-withdrawal-section");
+        const barcodeQcLink = document.getElementById("barcode-qc-link");
 
         if (!barcodeInput) return;
         let pendingResolveTimer = null;
@@ -53,6 +107,25 @@
             if (unitsDisplay) unitsDisplay.textContent = "";
             if (unitsPerQuantityInput) unitsPerQuantityInput.value = "";
             if (volumeSection) volumeSection.style.display = "none";
+            if (barcodeQcLink) {
+                barcodeQcLink.style.display = "none";
+                barcodeQcLink.href = "#";
+            }
+            hideFloatingAlert();
+        }
+
+        function syncQcLink(payload) {
+            if (!barcodeQcLink) {
+                return;
+            }
+            const shouldShow = Boolean(payload && payload.item_id && payload.qc_action_required && !payload.qc_passed);
+            if (!shouldShow) {
+                barcodeQcLink.style.display = "none";
+                barcodeQcLink.href = "#";
+                return;
+            }
+            barcodeQcLink.href = buildAppUrl(`/quality-control/checks/create/?product_item_id=${encodeURIComponent(payload.item_id)}`);
+            barcodeQcLink.style.display = "inline-flex";
         }
 
         function applyResolvedProduct(payload) {
@@ -87,6 +160,12 @@
                     volumeSection.style.display = "none";
                 }
             }
+            if (payload.expired_lot) {
+                showFloatingAlert(payload.expired_lot_message || "Lot has expired.");
+            } else {
+                hideFloatingAlert();
+            }
+            syncQcLink(payload);
         }
 
         function buildLookupUrls(rawBarcode) {
@@ -156,6 +235,7 @@
                 if (lotHidden) lotHidden.value = payload.parsed.lot_number || "";
                 if (expiryHidden) expiryHidden.value = payload.parsed.expiry_date || "";
             }
+            hideFloatingAlert();
             alert("Barcode could not be mapped automatically. Please use manual selection or ask an inventory manager to add a mapping in Manage Product Codes.");
         }
 

@@ -67,7 +67,7 @@ def record_purchase_order(request):
     products = Product.objects.all()
     low_stock = []
     for product in products:
-        total_stock = sum(item.current_stock for item in product.items.all())
+        total_stock = product.get_available_stock()
         if total_stock < product.threshold:
             low_stock.append(product)
 

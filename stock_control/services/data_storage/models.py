@@ -7,6 +7,10 @@ from django.utils.timezone import now
 import uuid
 
 
+def _today():
+    return timezone.localdate()
+
+
 class Supplier(models.Model):
     name = models.CharField(max_length=100)
     contact_email = models.EmailField(blank=True, null=True)
@@ -56,11 +60,20 @@ class Product(models.Model):
             return f"{self.product_code} - {self.name}"
         return self.name
 
+    def available_items(self):
+        return self.items.filter(expiry_date__gt=_today())
+
+    def get_available_stock(self):
+        return sum(
+            (item.current_stock for item in self.available_items()),
+            Decimal("0.00"),
+        )
+
     def get_full_items_in_stock(self):
-        return int(sum(item.current_stock for item in self.items.all()))
+        return int(self.get_available_stock())
 
     def get_remaining_parts(self):
-        return sum(item.accumulated_partial for item in self.items.all())
+        return sum(item.accumulated_partial for item in self.available_items())
 
     @property
     def supplier_display(self):
@@ -77,25 +90,31 @@ class ProductItem(models.Model):
         max_digits=12, decimal_places=2, default=Decimal('0.00'),
         help_text="Stock available for this lot"
     )
-    units_per_quantity = models.PositiveIntegerField(default=1)
+    units_per_quantity = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('1.00'),
+    )
     accumulated_partial = models.PositiveIntegerField(default=0)
 
     PRODUCT_FEATURE_CHOICES = [
         ('unit', 'Unit'),
         ('volume', 'Volume'),
     ]
-    product_feature = models.CharField(max_length=10, choices=PRODUCT_FEATURE_CHOICES, default='unit')
+    product_feature = models.CharField(max_length=10, choices=PRODUCT_FEATURE_CHOICES, default='volume')
 
     def __str__(self):
         return f"{self.product.name} (Lot {self.lot_number})"
 
+    @property
+    def is_expired(self):
+        return bool(self.expiry_date and self.expiry_date <= _today())
+
     def get_full_items_in_stock(self):
-        """Total full items across all lots."""
-        return int(sum(item.current_stock for item in self.items.all()))
+        return 0 if self.is_expired else int(self.current_stock)
 
     def get_remaining_parts(self):
-        """Total partial units (leftover parts across all lots)."""
-        return sum(item.accumulated_partial for item in self.items.all())
+        return 0 if self.is_expired else self.accumulated_partial
 
 
 class ProductIdentifier(models.Model):
@@ -228,6 +247,7 @@ class Withdrawal(models.Model):
             ('unit', 'Full Item'),
             ('volume', 'Volume'),
             ('part', 'Partial Withdrawal'),
+            ('discarded', 'Lot Discarded'),
         ],
         default='unit'
     )
@@ -379,3 +399,28 @@ class PurchaseOrderCompletionLog(models.Model):
 
     def __str__(self):
         return f"Completed PO - {self.product_name} ({self.product_code}) on {self.completed_at.strftime('%Y-%m-%d %H:%M')}"
+
+
+class ProductDeletionArchive(models.Model):
+    deleted_product_uuid = models.UUIDField(db_index=True)
+    deleted_product_code = models.CharField(max_length=50, blank=True, default="")
+    deleted_product_name = models.CharField(max_length=255)
+    supplier = models.CharField(max_length=100, blank=True, default="")
+    location_name = models.CharField(max_length=100, blank=True, default="")
+    threshold = models.PositiveIntegerField(default=0)
+    lead_time_seconds = models.BigIntegerField(default=0)
+    deleted_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="deleted_product_archives",
+    )
+    deleted_at = models.DateTimeField(default=timezone.now, db_index=True)
+    items_snapshot = models.JSONField(default=list, blank=True)
+    identifiers_snapshot = models.JSONField(default=list, blank=True)
+    barcode_aliases_snapshot = models.JSONField(default=list, blank=True)
+
+    def __str__(self):
+        code = self.deleted_product_code or "NO-CODE"
+        return f"Deleted Product {code} - {self.deleted_product_name}"

@@ -3,7 +3,7 @@ from django.utils.timezone import now
 import datetime
 from django.utils import timezone
 from services.data_collection.data_collection import parse_barcode_data
-from services.data_collection.barcode_resolution import resolve_product_from_barcode
+from services.data_collection.barcode_resolution import parse_expiry_date, resolve_product_from_barcode
 from services.data_storage.models import Product, ProductItem, Withdrawal, Supplier
 from inventory.forms import ProductForm, ProductItemForm
 from django.shortcuts import redirect
@@ -20,6 +20,7 @@ def stock_admin(request, product_id=None):
     barcode_parsed_code, parsed_lot, parsed_expiry = None, None, None
     editing_product, editing_lot_item = None, None
     product_form_initial = {}
+    scanned_lot_expired = False
 
     if raw_barcode:
         barcode_data = parse_barcode_data(raw_barcode)
@@ -48,6 +49,11 @@ def stock_admin(request, product_id=None):
                 product_id = editing_product.id
                 if parsed_lot and not editing_lot_item:
                     editing_lot_item = ProductItem.objects.filter(product=editing_product, lot_number=parsed_lot).first()
+            scanned_expiry = parse_expiry_date(parsed_expiry)
+            if editing_lot_item:
+                scanned_lot_expired = editing_lot_item.is_expired
+            elif scanned_expiry:
+                scanned_lot_expired = scanned_expiry <= timezone.localdate()
 
     products = Product.objects.all().order_by('name')
     # Default supplier ref: only set from the product being edited or scanned.
@@ -100,7 +106,7 @@ def stock_admin(request, product_id=None):
             except ValueError:
                 pass
 
-    low_stock = [p for p in products if sum(item.current_stock for item in p.items.all()) < p.threshold]
+    low_stock = [p for p in products if p.get_available_stock() < p.threshold]
 
     module_flags = get_module_flags()
     location_stocks = {}
@@ -121,6 +127,7 @@ def stock_admin(request, product_id=None):
         'low_stock': low_stock,
         'location_stocks': location_stocks,
         'location_tracking_enabled': module_flags.get("location_tracking", False) and LocationStock is not None,
+        'scanned_lot_expired': scanned_lot_expired,
         'now': now(),
     }
     return render(request, 'inventory/stock_admin.html', context)
@@ -133,7 +140,7 @@ def delete_lot(request, item_id):
         Withdrawal.objects.create(
             product_item=item,
             quantity=item.current_stock,
-            withdrawal_type='lot_discard',
+            withdrawal_type='discarded',
             timestamp=timezone.now(),
             user=request.user,
             barcode=None,

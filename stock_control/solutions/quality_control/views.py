@@ -137,7 +137,10 @@ def lot_status(request):
     location_names = [loc.name for loc in location_state["locations"]] if team_manager_scope else []
 
     products = (
-        Product.objects.filter(items__current_stock__gt=0)
+        Product.objects.filter(
+            items__current_stock__gt=0,
+            items__expiry_date__gt=timezone.localdate(),
+        )
         .order_by("name")
         .distinct()
     )
@@ -317,6 +320,8 @@ def create_check(request):
 
     resolved_allowed_ids = _compute_allowed_ids(selected_location_id)
     form_kwargs = {}
+    requested_item_id = request.GET.get("product_item_id") or request.GET.get("item_id")
+    initial_product_item_id = None
 
     def _refresh_form_kwargs():
         if resolved_allowed_ids is not None:
@@ -325,6 +330,18 @@ def create_check(request):
             form_kwargs.pop("allowed_product_ids", None)
 
     _refresh_form_kwargs()
+
+    if requested_item_id:
+        try:
+            candidate_item_id = int(requested_item_id)
+        except (TypeError, ValueError):
+            candidate_item_id = None
+        if candidate_item_id:
+            candidate_qs = ProductItem.objects.filter(pk=candidate_item_id)
+            if resolved_allowed_ids is not None:
+                candidate_qs = candidate_qs.filter(product_id__in=resolved_allowed_ids)
+            if candidate_qs.exists():
+                initial_product_item_id = candidate_item_id
 
     if request.method == "POST":
         posted_location_id = coerce_location_id(request.POST.get("selected_location"))
@@ -354,7 +371,10 @@ def create_check(request):
         elif location_error:
             form.add_error(None, location_error)
     else:
-        form = QualityCheckForm(**form_kwargs)
+        if initial_product_item_id:
+            form = QualityCheckForm(initial={"product_item": initial_product_item_id}, **form_kwargs)
+        else:
+            form = QualityCheckForm(**form_kwargs)
     return render(
         request,
         "quality_control/create_check.html",
@@ -363,5 +383,6 @@ def create_check(request):
             "location_choices": location_state["locations"],
             "location_selection_required": location_tracking_enabled and selection_required,
             "selected_location_id": selected_location_id,
+            "preselected_product_item_id": initial_product_item_id,
         },
     )

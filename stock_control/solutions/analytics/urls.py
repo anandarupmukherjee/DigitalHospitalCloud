@@ -6,6 +6,7 @@ app_name = "analytics"
 
 urlpatterns = [
     path("track-withdrawals/", views.track_withdrawals, name="track_withdrawals"),
+    path("track-qc/", views.track_qc, name="track_qc"),
     path("track-low-lots/", views.track_low_lots, name="track_low_lots"),
     path("track-expired-lots/", views.track_expired_lots, name="track_expired_lots"),
     path(

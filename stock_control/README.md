@@ -18,6 +18,30 @@ The Docker entrypoint automatically creates this superuser on startup.
 Override the credentials by setting `DJANGO_SUPERUSER_USERNAME`, `DJANGO_SUPERUSER_PASSWORD`,  
 and `DJANGO_SUPERUSER_EMAIL` in `docker-compose.yml` (or via your environment) before running `start.sh`.
 
+## Safe upgrades and database preservation
+
+Before making schema or deployment changes, create a backup of the current database state:
+
+```bash
+./backup_database.sh
+```
+
+For normal stack upgrades, use the upgrade wrapper instead of a plain `docker compose up` so the backup happens first:
+
+```bash
+./upgrade.sh
+```
+
+This creates a timestamped backup in `./backups/`, then rebuilds and restarts the stack. If you need to skip either step intentionally, use `SKIP_BACKUP=1` or `SKIP_BUILD=1`.
+
+If you need to migrate from the local SQLite source database into Postgres, do not run `migrate_data.sh` unless you have a current backup. The migration script now protects existing Postgres data and requires an explicit overwrite flag:
+
+```bash
+FORCE_MIGRATE=1 ./migrate_data.sh
+```
+
+If `postgres_data` already exists, the script will stop unless `FORCE_MIGRATE=1` is set. When forced, it now preserves the existing Postgres data directory under `./backups/` instead of deleting it.
+
 ## Modular add-ons
 
 The core inventory management experience always stays enabled. Optional add-ons now live under the `solutions/`

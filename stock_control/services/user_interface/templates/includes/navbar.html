@@ -46,6 +46,9 @@
           {% if user|has_role_or_admin:"Inventory Manager" or user|has_role:"Team Manager" or user|has_role:"Staff" %}
             <a href="{% url 'analytics:track_withdrawals' %}">Track Withdrawals</a>
           {% endif %}
+          {% if user|has_role_or_admin:"Inventory Manager" or user|has_role:"Team Manager" %}
+            <a href="{% url 'analytics:track_qc' %}">Track QC</a>
+          {% endif %}
           {% if user|has_role_or_admin:"Inventory Manager" or user|has_role:"Team Manager" or user|has_role:"Supplier" %}
             <a href="{% url 'analytics:track_low_lots' %}">Track Low Lots</a>
             <a href="{% url 'analytics:track_expired_lots' %}">Track Expired Lots</a>
@@ -75,6 +78,7 @@
             <a href="{% url 'inventory:manage_locations' %}">Manage Locations</a>
           {% endif %}
           <a href="{% url 'inventory:manage_product_codes' %}">Manage Product Codes</a>
+          <a href="{% url 'inventory:delete_products' %}">Delete Product</a>
           <a href="{% url 'password_change' %}">Change Password</a>
         </div>
       </li>

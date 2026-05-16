@@ -36,12 +36,61 @@
     .delete-button:hover {
       background-color: #c0392b;
     }
+
+    .stock-admin-field-group {
+      margin-bottom: 16px;
+    }
+
+    .stock-admin-field-group label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .stock-admin-field-group input,
+    .stock-admin-field-group select {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .stock-admin-help {
+      display: block;
+      margin-top: 4px;
+      font-size: 0.9rem;
+      color: #5f6b7a;
+    }
+
+    .stock-admin-mode-panel {
+      border: 1px solid #d8dee8;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 16px;
+      background: #f8fafc;
+    }
+
+    .stock-admin-mode-panel h4 {
+      margin: 0 0 8px;
+    }
+
+    .hidden-panel {
+      display: none;
+    }
   </style>
 </head>
 <body>
 
   <!-- Navigation Bar -->
   {% include "includes/navbar.html" %}
+
+  <div id="floating-alert-overlay" class="floating-alert-overlay hidden">
+    <div class="floating-alert-window alert-error" role="alertdialog" aria-live="assertive">
+      <h3 class="floating-alert-title">Expired Lot</h3>
+      <p class="floating-alert-message" id="floating-alert-message">Lot has expired.</p>
+      <div class="floating-alert-actions">
+        <button type="button" class="floating-alert-button" id="floating-alert-close">Close</button>
+      </div>
+    </div>
+  </div>
 
   <div class="dashboard-container stock-admin-container">
 
@@ -98,7 +147,63 @@
           </fieldset>
           <fieldset>
             <legend>Lot Information</legend>
-            {{ product_item_form.as_p }}
+            {{ product_item_form.accumulated_partial }}
+
+            <div class="stock-admin-field-group">
+              <label for="{{ product_item_form.lot_number.id_for_label }}">Lot Number</label>
+              {{ product_item_form.lot_number }}
+              {% if product_item_form.lot_number.errors %}<div class="errorlist">{{ product_item_form.lot_number.errors }}</div>{% endif %}
+            </div>
+
+            <div class="stock-admin-field-group">
+              <label for="{{ product_item_form.expiry_date.id_for_label }}">Expiry Date</label>
+              {{ product_item_form.expiry_date }}
+              {% if product_item_form.expiry_date.errors %}<div class="errorlist">{{ product_item_form.expiry_date.errors }}</div>{% endif %}
+            </div>
+
+            <div class="stock-admin-field-group">
+              <label for="{{ product_item_form.product_feature.id_for_label }}">Product Type</label>
+              {{ product_item_form.product_feature }}
+              {% if product_item_form.product_feature.errors %}<div class="errorlist">{{ product_item_form.product_feature.errors }}</div>{% endif %}
+            </div>
+
+            <div id="volume-fields-panel" class="stock-admin-mode-panel">
+              <h4>Reagent Volume</h4>
+
+              <div class="stock-admin-field-group">
+                <label for="{{ product_item_form.full_volume.id_for_label }}">Full Volume</label>
+                {{ product_item_form.full_volume }}
+                <span class="stock-admin-help">{{ product_item_form.full_volume.help_text }}</span>
+                {% if product_item_form.full_volume.errors %}<div class="errorlist">{{ product_item_form.full_volume.errors }}</div>{% endif %}
+              </div>
+
+              <div class="stock-admin-field-group">
+                <label for="{{ product_item_form.partial_withdrawal_volume.id_for_label }}">Unit Partial Withdrawal Volume</label>
+                {{ product_item_form.partial_withdrawal_volume }}
+                <span class="stock-admin-help">{{ product_item_form.partial_withdrawal_volume.help_text }}</span>
+                {% if product_item_form.partial_withdrawal_volume.errors %}<div class="errorlist">{{ product_item_form.partial_withdrawal_volume.errors }}</div>{% endif %}
+              </div>
+            </div>
+
+            <div id="unit-fields-panel" class="stock-admin-mode-panel hidden-panel">
+              <h4>Unit Lot Details</h4>
+
+              <div class="stock-admin-field-group">
+                <label for="{{ product_item_form.current_stock.id_for_label }}">Current Stock</label>
+                {{ product_item_form.current_stock }}
+                {% if product_item_form.current_stock.errors %}<div class="errorlist">{{ product_item_form.current_stock.errors }}</div>{% endif %}
+              </div>
+
+              <div class="stock-admin-field-group">
+                <label for="{{ product_item_form.units_per_quantity.id_for_label }}">Units Per Quantity</label>
+                {{ product_item_form.units_per_quantity }}
+                {% if product_item_form.units_per_quantity.errors %}<div class="errorlist">{{ product_item_form.units_per_quantity.errors }}</div>{% endif %}
+              </div>
+            </div>
+
+            {% if product_item_form.non_field_errors %}
+              <div class="errorlist">{{ product_item_form.non_field_errors }}</div>
+            {% endif %}
           </fieldset>
           <button type="submit">
             {% if editing_product %}Save Changes{% else %}Add Product and Lot{% endif %}
@@ -121,12 +226,12 @@
                 <th>Product</th>
                 <th>Lot Number</th>
                 <th>Expiry</th>
-                <th>Stock</th>
+                <th>Available</th>
                 {% if location_tracking_enabled %}
                   <th>Locations</th>
                 {% endif %}
-                <th>Units/Item</th>
-                <th>Partial Units</th>
+                <th>Step Size</th>
+                <th>Accumulated Partials</th>
                 <th>Type</th>
               </tr>
             </thead>
@@ -153,7 +258,13 @@
                   <td>{{ p.name }}</td>
                   <td>{{ item.lot_number }}</td>
                   <td>{{ item.expiry_date|date:"F d, Y" }}</td>
-                  <td>{{ item.current_stock }}</td>
+                  <td>
+                    {% if item.product_feature == 'volume' %}
+                      {{ item.current_stock }} mL remaining
+                    {% else %}
+                      {{ item.current_stock }} item{{ item.current_stock|pluralize }}
+                    {% endif %}
+                  </td>
                   {% if location_tracking_enabled %}
                     <td>
                       {% with stocks=product.location_stocks %}
@@ -171,9 +282,21 @@
                       {% endwith %}
                     </td>
                   {% endif %}
-                  <td>{{ item.units_per_quantity }}</td>
-                  <td>{{ item.accumulated_partial }}</td>
-                  <td>{{ item.product_feature }}</td>
+                  <td>
+                    {% if item.product_feature == 'volume' %}
+                      {{ item.units_per_quantity }} mL per partial withdrawal
+                    {% else %}
+                      {{ item.units_per_quantity }} unit{{ item.units_per_quantity|pluralize }} per item
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if item.product_feature == 'volume' %}
+                      {{ item.accumulated_partial }} recorded
+                    {% else %}
+                      {{ item.accumulated_partial }} unit{{ item.accumulated_partial|pluralize }}
+                    {% endif %}
+                  </td>
+                  <td>{{ item.get_product_feature_display }}</td>
                 </tr>
               {% endfor %}
               {% endfor %}
@@ -187,4 +310,45 @@
   </div> <!-- /.dashboard-container -->
 
 </body>
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    const overlay = document.getElementById("floating-alert-overlay");
+    const closeButton = document.getElementById("floating-alert-close");
+    const productFeatureField = document.getElementById("id_product_feature");
+    const volumePanel = document.getElementById("volume-fields-panel");
+    const unitPanel = document.getElementById("unit-fields-panel");
+    const closeOverlay = function() {
+      if (overlay) {
+        overlay.classList.add("hidden");
+      }
+    };
+    if (closeButton) {
+      closeButton.addEventListener("click", closeOverlay);
+    }
+    if (overlay) {
+      overlay.addEventListener("click", function(event) {
+        if (event.target === overlay) {
+          closeOverlay();
+        }
+      });
+      {% if scanned_lot_expired %}
+        overlay.classList.remove("hidden");
+      {% endif %}
+    }
+
+    const syncProductFeaturePanels = function() {
+      if (!productFeatureField || !volumePanel || !unitPanel) {
+        return;
+      }
+      const isVolume = productFeatureField.value === "volume";
+      volumePanel.classList.toggle("hidden-panel", !isVolume);
+      unitPanel.classList.toggle("hidden-panel", isVolume);
+    };
+
+    syncProductFeaturePanels();
+    if (productFeatureField) {
+      productFeatureField.addEventListener("change", syncProductFeaturePanels);
+    }
+  });
+</script>
 </html>

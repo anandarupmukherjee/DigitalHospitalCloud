@@ -21,6 +21,59 @@
 
     window.__buildAppUrl = buildAppUrl;
 
+    function ensureFloatingAlert() {
+        let overlay = document.getElementById("floating-alert-overlay");
+        if (overlay) {
+            return overlay;
+        }
+
+        overlay = document.createElement("div");
+        overlay.id = "floating-alert-overlay";
+        overlay.className = "floating-alert-overlay hidden";
+        overlay.innerHTML = `
+            <div class="floating-alert-window alert-error" role="alertdialog" aria-live="assertive">
+                <h3 class="floating-alert-title">Expired Lot</h3>
+                <p class="floating-alert-message" id="floating-alert-message"></p>
+                <div class="floating-alert-actions">
+                    <button type="button" class="floating-alert-button" id="floating-alert-close">Close</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const closeButton = overlay.querySelector("#floating-alert-close");
+        if (closeButton) {
+            closeButton.addEventListener("click", function () {
+                overlay.classList.add("hidden");
+            });
+        }
+        overlay.addEventListener("click", function (event) {
+            if (event.target === overlay) {
+                overlay.classList.add("hidden");
+            }
+        });
+        return overlay;
+    }
+
+    function showFloatingAlert(message) {
+        const overlay = ensureFloatingAlert();
+        const messageNode = overlay.querySelector("#floating-alert-message");
+        if (messageNode) {
+            messageNode.textContent = message || "Lot has expired.";
+        }
+        overlay.classList.remove("hidden");
+    }
+
+    function hideFloatingAlert() {
+        const overlay = document.getElementById("floating-alert-overlay");
+        if (overlay) {
+            overlay.classList.add("hidden");
+        }
+    }
+
+    window.__showFloatingAlert = showFloatingAlert;
+    window.__hideFloatingAlert = hideFloatingAlert;
+
     document.addEventListener("DOMContentLoaded", function () {
         const barcodeInput = document.getElementById("id_barcode");
         const productNameInput = document.getElementById("id_product_name");
@@ -53,6 +106,7 @@
             if (unitsDisplay) unitsDisplay.textContent = "";
             if (unitsPerQuantityInput) unitsPerQuantityInput.value = "";
             if (volumeSection) volumeSection.style.display = "none";
+            hideFloatingAlert();
         }
 
         function applyResolvedProduct(payload) {
@@ -87,11 +141,21 @@
                     volumeSection.style.display = "none";
                 }
             }
+            if (payload.expired_lot) {
+                showFloatingAlert(payload.expired_lot_message || "Lot has expired.");
+            } else {
+                hideFloatingAlert();
+            }
         }
 
         function buildLookupUrls(rawBarcode) {
             const encoded = encodeURIComponent((rawBarcode || "").trim());
             const urls = [];
+            try {
+                urls.push(new URL(`../data/get-product-by-barcode/?barcode=${encoded}`, window.location.href).toString());
+            } catch (e) {
+                // Ignore URL construction issues and continue with static fallbacks.
+            }
             urls.push(buildAppUrl(`/data/get-product-by-barcode/?barcode=${encoded}`));
             urls.push(`/data/get-product-by-barcode/?barcode=${encoded}`);
             if (window.location && window.location.pathname) {
@@ -151,6 +215,7 @@
                 if (lotHidden) lotHidden.value = payload.parsed.lot_number || "";
                 if (expiryHidden) expiryHidden.value = payload.parsed.expiry_date || "";
             }
+            hideFloatingAlert();
             alert("Barcode could not be mapped automatically. Please use manual selection or ask an inventory manager to add a mapping in Manage Product Codes.");
         }
 

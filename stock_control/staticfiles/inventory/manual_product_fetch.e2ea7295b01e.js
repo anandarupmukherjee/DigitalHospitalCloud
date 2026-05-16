@@ -28,7 +28,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const manualBehavior = document.getElementById("manual-withdrawal-behavior");
     const manualModeInput = document.getElementById("id_manual_withdrawal_mode");
     const manualTypeInput = document.getElementById("id_manual_withdrawal_type");
-    const manualQcLink = document.getElementById("manual-qc-link");
     const quantityInput = document.getElementById("id_quantity");
     const partsInput = document.getElementById("id_parts_withdrawn");
     const fullItemSection = document.getElementById("full_item_section");
@@ -43,20 +42,6 @@ document.addEventListener("DOMContentLoaded", function () {
         if (disabled) {
             field.value = field.tagName === "SELECT" ? "" : "0";
         }
-    }
-
-    function syncManualQcLink(selectedLot) {
-        if (!manualQcLink) {
-            return;
-        }
-        const shouldShow = Boolean(selectedLot && selectedLot.item_id && selectedLot.qc_action_required && !selectedLot.qc_passed);
-        if (!shouldShow) {
-            manualQcLink.style.display = "none";
-            manualQcLink.href = "#";
-            return;
-        }
-        manualQcLink.href = buildAppUrl(`/quality-control/checks/create/?product_item_id=${encodeURIComponent(selectedLot.item_id)}`);
-        manualQcLink.style.display = "inline-flex";
     }
 
     function updateManualModeForLot(selectedLot) {
@@ -74,7 +59,6 @@ document.addEventListener("DOMContentLoaded", function () {
             if (partItemSection) partItemSection.style.display = "none";
             setFieldState(quantityInput, false);
             setFieldState(partsInput, true);
-            syncManualQcLink(null);
             document.dispatchEvent(new CustomEvent("manualLotChanged"));
             return;
         }
@@ -120,7 +104,6 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
 
-        syncManualQcLink(selectedLot);
         document.dispatchEvent(new CustomEvent("manualLotChanged"));
     }
 

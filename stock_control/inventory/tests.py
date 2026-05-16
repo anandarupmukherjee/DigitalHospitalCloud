@@ -1,22 +1,34 @@
 from datetime import date, timedelta
 from decimal import Decimal
+import json
 
 from django.contrib.auth.models import Group, User
-from django.test import TestCase
+from django.contrib.messages.storage.fallback import FallbackStorage
+from django.contrib.sessions.middleware import SessionMiddleware
+from django.http import HttpRequest
+from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
+from inventory.forms import ProductForm, ProductItemForm
 from inventory.roles import ROLE_INVENTORY_MANAGER
+from inventory.views import delete_products
+from services.data_collection_2.create_withdrawal import create_withdrawal
 from services.data_collection.barcode_resolution import resolve_product_from_barcode
-from services.data_collection.data_collection import parse_barcode_data
+from services.data_collection.data_collection import get_product_by_id, parse_barcode_data
 from services.data_storage.models import (
+    Location,
     Product,
     ProductBarcodeAlias,
+    ProductDeletionArchive,
     ProductIdentifier,
     ProductItem,
     StockRegistration,
     Supplier,
     Withdrawal,
 )
+from solutions.analytics.views import track_qc
+from solutions.quality_control.models import QualityCheck
+from solutions.quality_control.views import create_check
 
 
 class BarcodeParserTests(TestCase):
@@ -163,6 +175,7 @@ class BarcodeEndpointsTests(TestCase):
 
 class WorkflowTests(TestCase):
     def setUp(self):
+        self.factory = RequestFactory()
         self.user = User.objects.create_user(username="manager", password="pass123")
         group, _ = Group.objects.get_or_create(name=ROLE_INVENTORY_MANAGER)
         self.user.groups.add(group)
@@ -187,7 +200,54 @@ class WorkflowTests(TestCase):
             current_stock=Decimal("5.00"),
             units_per_quantity=1,
         )
+        self.partial_item = ProductItem.objects.create(
+            product=self.product,
+            lot_number="PART001",
+            expiry_date=date(2027, 6, 1),
+            current_stock=Decimal("5.00"),
+            units_per_quantity=4,
+            accumulated_partial=1,
+            product_feature="unit",
+        )
+        self.volume_item = ProductItem.objects.create(
+            product=self.product,
+            lot_number="VOL001",
+            expiry_date=date(2027, 7, 1),
+            current_stock=Decimal("7.50"),
+            units_per_quantity=Decimal("0.20"),
+            product_feature="volume",
+        )
+        self.expired_item = ProductItem.objects.create(
+            product=self.product,
+            lot_number="EXP001",
+            expiry_date=date(2025, 1, 1),
+            current_stock=Decimal("10.00"),
+            units_per_quantity=1,
+        )
         self.barcode = "01008476270080391727033110092625A"
+        self.expired_barcode = "01008476270080391725010110EXP001"
+
+    def _build_post_request(self, path, data):
+        request = self.factory.post(path, data=data)
+        request.user = self.user
+        middleware = SessionMiddleware(lambda req: None)
+        middleware.process_request(request)
+        request.session.save()
+        setattr(request, "_messages", FallbackStorage(request))
+        return request
+
+    def _build_get_request(self, path, data=None):
+        request = self.factory.get(path, data=data or {})
+        request.user = self.user
+        middleware = SessionMiddleware(lambda req: None)
+        middleware.process_request(request)
+        request.session.save()
+        setattr(request, "_messages", FallbackStorage(request))
+        return request
+
+    def test_available_stock_excludes_expired_lots(self):
+        self.assertEqual(self.product.get_available_stock(), Decimal("17.50"))
+        self.assertEqual(self.product.get_full_items_in_stock(), 17)
 
     def test_register_stock_with_mapped_barcode(self):
         self.client.force_login(self.user)
@@ -222,6 +282,116 @@ class WorkflowTests(TestCase):
         withdrawal = Withdrawal.objects.latest("id")
         self.assertEqual(str(withdrawal.resolved_product_uuid), str(self.product.uuid))
 
+    def test_barcode_lookup_flags_expired_lot_and_keeps_available_stock(self):
+        response = self.client.get(
+            reverse("data:get_product_by_barcode"),
+            {"barcode": self.expired_barcode},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["expired_lot"])
+        self.assertEqual(payload["stock"], "10.00")
+        self.assertEqual(payload["current_stock"], "17.50")
+
+    def test_manual_product_lookup_marks_lot_requiring_qc_action(self):
+        QualityCheck.objects.create(
+            product_item=self.item,
+            performed_by=self.user,
+            status=QualityCheck.STATUS_COMPLETED,
+            result="pass",
+        )
+        request = self._build_get_request("/data/get-product-by-id/", {"id": str(self.product.id)})
+        response = get_product_by_id(request)
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        lots_by_number = {row["lot_number"]: row for row in payload["lots"]}
+        self.assertFalse(lots_by_number["092625A"]["qc_action_required"])
+        self.assertTrue(lots_by_number["PART001"]["qc_action_required"])
+        self.assertTrue(lots_by_number["092625A"]["qc_passed"])
+
+    def test_qc_create_check_preselects_requested_product_item(self):
+        request = self._build_get_request(
+            "/quality-control/checks/create/",
+            {"product_item_id": str(self.partial_item.id)},
+        )
+        response = create_check(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(str(self.partial_item.id), response.content.decode("utf-8"))
+
+    def test_delete_product_archives_snapshot_and_preserves_history(self):
+        ProductIdentifier.objects.create(
+            product=self.product,
+            identifier_type="NAME",
+            identifier_value="NKX3.1 Main",
+        )
+        Withdrawal.objects.create(
+            product_item=self.item,
+            quantity=Decimal("1.00"),
+            withdrawal_type="unit",
+            user=self.user,
+        )
+        StockRegistration.objects.create(
+            product_item=self.item,
+            quantity=1,
+            user=self.user,
+        )
+
+        request = self._build_post_request(
+            "/inventory/delete_products/",
+            data={
+                "product_id": str(self.product.id),
+                "password": "pass123",
+            },
+        )
+        response = delete_products(request)
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Product.objects.filter(id=self.product.id).exists())
+
+        archive = ProductDeletionArchive.objects.get(deleted_product_name="NKX3.1")
+        self.assertEqual(archive.deleted_by, self.user)
+        self.assertEqual(archive.deleted_product_uuid, self.product.uuid)
+        self.assertTrue(any(item["lot_number"] == "092625A" for item in archive.items_snapshot))
+        self.assertTrue(any(identifier["identifier_value"] == "NKX3.1 Main" for identifier in archive.identifiers_snapshot))
+
+        withdrawal = Withdrawal.objects.latest("id")
+        registration = StockRegistration.objects.latest("id")
+        self.assertEqual(withdrawal.product_name, "NKX3.1")
+        self.assertEqual(registration.product_name, "NKX3.1")
+
+    def test_track_qc_filters_by_result_lot_and_product(self):
+        QualityCheck.objects.create(
+            product_item=self.item,
+            performed_by=self.user,
+            status=QualityCheck.STATUS_COMPLETED,
+            result="pass",
+        )
+        QualityCheck.objects.create(
+            product_item=self.partial_item,
+            performed_by=self.user,
+            status=QualityCheck.STATUS_COMPLETED,
+            result="fail",
+        )
+
+        request = self._build_get_request(
+            "/analytics/track-qc/",
+            {
+                "result": "fail",
+                "product_name": "NKX3.1",
+                "lot_number": "PART",
+            },
+        )
+        response = track_qc(request)
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertIn("PART001", content)
+        self.assertNotIn("092625A", content)
+
+    def test_track_qc_available_in_reports_page_for_inventory_manager(self):
+        request = self._build_get_request("/analytics/track-qc/")
+        response = track_qc(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Track QC", response.content.decode("utf-8"))
+
     def test_stock_admin_lookup_uses_alias_resolution(self):
         self.client.force_login(self.user)
         response = self.client.get(
@@ -230,6 +400,75 @@ class WorkflowTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["editing_product"].id, self.product.id)
+
+    def test_stock_admin_volume_entry_derives_internal_lot_fields(self):
+        form = ProductItemForm(
+            data={
+                "lot_number": "LOT-REAG-1",
+                "expiry_date": "2027-06-30",
+                "product_feature": "volume",
+                "full_volume": "7.50",
+                "partial_withdrawal_volume": "0.20",
+                "current_stock": "",
+                "units_per_quantity": "",
+                "accumulated_partial": "",
+            }
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        item = form.save(commit=False)
+        self.assertEqual(item.product_feature, "volume")
+        self.assertEqual(item.current_stock, Decimal("7.50"))
+        self.assertEqual(item.units_per_quantity, Decimal("0.20"))
+        self.assertEqual(item.accumulated_partial, 0)
+
+    def test_manual_unit_partial_withdrawal_updates_partial_tracking(self):
+        request = self._build_post_request(
+            "/stock/create_withdrawal/",
+            data={
+                "product_dropdown": str(self.product.id),
+                "manual_lot_item_id": str(self.partial_item.id),
+                "barcode_manual": self.product.product_code or "",
+                "withdrawal_type": "part",
+                "withdrawal_mode": "part",
+                "parts_withdrawn": "3",
+            },
+        )
+        response = create_withdrawal(request)
+        self.assertEqual(response.status_code, 302)
+        self.partial_item.refresh_from_db()
+        self.assertEqual(self.partial_item.current_stock, Decimal("4.00"))
+        self.assertEqual(self.partial_item.accumulated_partial, 0)
+        withdrawal = Withdrawal.objects.latest("id")
+        self.assertEqual(withdrawal.withdrawal_type, "part")
+        self.assertEqual(withdrawal.quantity, Decimal("1.00"))
+        self.assertEqual(withdrawal.parts_withdrawn, 3)
+
+    def test_manual_volume_partial_withdrawal_updates_remaining_volume(self):
+        request = self._build_post_request(
+            "/stock/create_withdrawal/",
+            data={
+                "product_dropdown": str(self.product.id),
+                "manual_lot_item_id": str(self.volume_item.id),
+                "barcode_manual": self.product.product_code or "",
+                "withdrawal_type": "part",
+                "withdrawal_mode": "part",
+                "parts_withdrawn": "3",
+            },
+        )
+        response = create_withdrawal(request)
+        self.assertEqual(response.status_code, 302)
+        self.volume_item.refresh_from_db()
+        self.assertEqual(self.volume_item.current_stock, Decimal("6.90"))
+        withdrawal = Withdrawal.objects.latest("id")
+        self.assertEqual(withdrawal.withdrawal_type, "part")
+        self.assertEqual(withdrawal.quantity, Decimal("0.60"))
+        self.assertEqual(withdrawal.parts_withdrawn, 3)
+
+    def test_stock_admin_location_choices_are_limited(self):
+        Location.objects.create(name="Histology")
+        form = ProductForm()
+        location_names = list(form.fields["location"].queryset.values_list("name", flat=True))
+        self.assertEqual(location_names, ["Ccentral", "Cold Store"])
 
     def test_qc_lot_status_lookup_uses_alias_resolution(self):
         self.client.force_login(self.user)
@@ -241,3 +480,12 @@ class WorkflowTests(TestCase):
         selected = response.context["selected_product"]
         self.assertIsNotNone(selected)
         self.assertEqual(selected.id, self.product.id)
+
+    def test_delete_expired_lot_creates_discard_withdrawal_and_redirects(self):
+        self.client.force_login(self.user)
+        response = self.client.post(f"/stock/delete_lot/{self.expired_item.id}/")
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(ProductItem.objects.filter(id=self.expired_item.id).exists())
+        withdrawal = Withdrawal.objects.latest("id")
+        self.assertEqual(withdrawal.withdrawal_type, "discarded")
+        self.assertEqual(withdrawal.lot_number, "EXP001")

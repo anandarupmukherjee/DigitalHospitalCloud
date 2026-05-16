@@ -28,10 +28,21 @@ from services.data_storage.models import Product, ProductItem, Withdrawal, Locat
 from services.reporting.reporting import download_report as _download_report
 from stock_control.module_loader import module_flags as get_module_flags
 
+try:
+    from solutions.quality_control.models import QualityCheck
+except Exception:
+    QualityCheck = None
+
 EXPIRED_RANGE_OPTIONS = {
     "now": {"label": "Expired", "days": 0},
     "week": {"label": "Next 1 Week", "days": 7},
     "month": {"label": "Next 1 Month", "days": 30},
+}
+
+QC_RESULT_OPTIONS = {
+    "all": "All",
+    "pass": "Passed",
+    "fail": "Failed",
 }
 
 
@@ -154,9 +165,9 @@ def track_low_lots(request):
 
     low_lots = []
     for product in product_qs:
-        total_stock = sum(item.current_stock for item in product.items.all())
+        total_stock = product.get_available_stock()
         if total_stock < product.threshold:
-            next_expiry = product.items.order_by("expiry_date").first()
+            next_expiry = product.available_items().order_by("expiry_date").first()
             low_lots.append(
                 {
                     "product": product,
@@ -227,6 +238,72 @@ def track_expired_lots(request):
                 for key, value in EXPIRED_RANGE_OPTIONS.items()
             ],
             "selected_range": range_key,
+            "team_manager_scope": team_manager_scope,
+            "location_tracking_enabled": location_tracking_enabled,
+            "user_locations": location_names,
+        },
+    )
+
+
+@login_required
+@group_required([ROLE_INVENTORY_MANAGER, ROLE_TEAM_MANAGER])
+def track_qc(request):
+    result_filter = (request.GET.get("result") or "all").strip().lower()
+    if result_filter not in QC_RESULT_OPTIONS:
+        result_filter = "all"
+    product_query = (request.GET.get("product_name") or "").strip()
+    lot_query = (request.GET.get("lot_number") or "").strip()
+
+    location_tracking_enabled = get_module_flags().get("location_tracking", False)
+    team_manager_scope = (
+        location_tracking_enabled
+        and user_has_role(request.user, ROLE_TEAM_MANAGER)
+        and not user_is_inventory_manager(request.user)
+    )
+    allowed_location_ids = get_user_location_ids(request.user) if team_manager_scope else set()
+    allowed_product_ids = (
+        get_product_ids_for_locations(allowed_location_ids) if allowed_location_ids else set()
+    )
+    location_names = [loc.name for loc in get_user_location_choices(request.user)] if team_manager_scope else []
+
+    checks = QualityCheck.objects.none() if QualityCheck is None else (
+        QualityCheck.objects.select_related(
+            "product_item",
+            "product_item__product",
+            "performed_by",
+            "location",
+        ).order_by("-created_at")
+    )
+
+    if QualityCheck is not None:
+        if result_filter == "pass":
+            checks = checks.filter(result="pass")
+        elif result_filter == "fail":
+            checks = checks.filter(result="fail")
+
+        if product_query:
+            checks = checks.filter(product_item__product__name__icontains=product_query)
+        if lot_query:
+            checks = checks.filter(product_item__lot_number__icontains=lot_query)
+
+        if team_manager_scope:
+            if allowed_location_ids:
+                checks = checks.filter(
+                    Q(location_id__in=allowed_location_ids)
+                    | Q(location_id__isnull=True, product_item__product__location_id__in=allowed_location_ids)
+                )
+            else:
+                checks = checks.none()
+
+    return render(
+        request,
+        "analytics/track_qc.html",
+        {
+            "checks": checks,
+            "selected_result": result_filter,
+            "result_options": QC_RESULT_OPTIONS,
+            "product_query": product_query,
+            "lot_query": lot_query,
             "team_manager_scope": team_manager_scope,
             "location_tracking_enabled": location_tracking_enabled,
             "user_locations": location_names,
@@ -343,7 +420,7 @@ def intelligence(request):
 
     slow_movers = []
     for product in Product.objects.prefetch_related("items").all():
-        total_stock = float(sum(i.current_stock for i in product.items.all()))
+        total_stock = float(product.get_available_stock())
         total_withdrawn = withdraw_map.get(product.id, 0.0)
         turnover = total_withdrawn / total_stock if total_stock > 0 else 0.0
         if total_withdrawn < 1 or turnover < 0.2:

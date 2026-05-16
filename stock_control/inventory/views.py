@@ -41,6 +41,7 @@ from services.data_storage.models import (
     ProductItem,
     ProductIdentifier,
     ProductBarcodeAlias,
+    ProductDeletionArchive,
     PurchaseOrder,
     Supplier,
     Location,
@@ -79,6 +80,13 @@ class ResetInventoryForm(forms.Form):
     action = forms.ChoiceField(widget=forms.RadioSelect, choices=RESET_CHOICES)
 
 
+class ProductDeleteConfirmForm(forms.Form):
+    password = forms.CharField(
+        widget=forms.PasswordInput(render_value=False),
+        label="Confirm Password",
+    )
+
+
 
 
 # ✅ Function to check if the user is an admin
@@ -104,6 +112,90 @@ def manage_users(request):
         for assignment in assignments:
             location_map[assignment.user_id] = assignment.location.name
     return render(request, 'registration/manage_users.html', {'users': users, 'user_locations': location_map})
+
+
+def _archive_product_for_deletion(product, deleted_by):
+    items_snapshot = [
+        {
+            "lot_number": item.lot_number,
+            "expiry_date": item.expiry_date.isoformat() if item.expiry_date else "",
+            "current_stock": str(item.current_stock),
+            "units_per_quantity": str(item.units_per_quantity),
+            "accumulated_partial": item.accumulated_partial,
+            "product_feature": item.product_feature,
+        }
+        for item in product.items.all().order_by("lot_number", "expiry_date")
+    ]
+    identifiers_snapshot = [
+        {
+            "identifier_type": identifier.identifier_type,
+            "identifier_value": identifier.identifier_value,
+            "supplier_name": identifier.supplier_name or "",
+            "is_preferred": identifier.is_preferred,
+        }
+        for identifier in product.identifiers.all().order_by("identifier_type", "identifier_value")
+    ]
+    barcode_aliases_snapshot = [
+        {
+            "barcode_type": alias.barcode_type,
+            "identifier_type": alias.identifier_type,
+            "identifier_value": alias.identifier_value,
+            "raw_barcode_sample": alias.raw_barcode_sample or "",
+            "supplier_name": alias.supplier_name or "",
+            "is_active": alias.is_active,
+        }
+        for alias in product.barcode_aliases.all().order_by("identifier_type", "identifier_value")
+    ]
+    ProductDeletionArchive.objects.create(
+        deleted_product_uuid=product.uuid,
+        deleted_product_code=product.product_code or "",
+        deleted_product_name=product.name,
+        supplier=product.supplier_display,
+        location_name=product.location.name if product.location else "",
+        threshold=product.threshold,
+        lead_time_seconds=int(product.lead_time.total_seconds()),
+        deleted_by=deleted_by,
+        items_snapshot=items_snapshot,
+        identifiers_snapshot=identifiers_snapshot,
+        barcode_aliases_snapshot=barcode_aliases_snapshot,
+    )
+
+
+@login_required
+@user_passes_test(is_admin, login_url='inventory:dashboard')
+def delete_products(request):
+    products = (
+        Product.objects.select_related("supplier_ref", "location")
+        .prefetch_related("items", "identifiers", "barcode_aliases")
+        .order_by("name")
+    )
+    form = ProductDeleteConfirmForm()
+    selected_product = None
+    if request.method == "POST":
+        form = ProductDeleteConfirmForm(request.POST)
+        product = get_object_or_404(
+            Product.objects.select_related("supplier_ref", "location").prefetch_related("items", "identifiers", "barcode_aliases"),
+            pk=request.POST.get("product_id"),
+        )
+        selected_product = product
+        if not request.user.check_password(request.POST.get("password", "")):
+            form.add_error("password", "Incorrect password.")
+        elif form.is_valid():
+            with transaction.atomic():
+                _archive_product_for_deletion(product, request.user)
+                product.delete()
+            messages.success(request, f"Product {product.name} deleted. Historical records remain available in transaction records and the deletion archive.")
+            return redirect("inventory:delete_products")
+
+    return render(
+        request,
+        "inventory/delete_products.html",
+        {
+            "products": products,
+            "password_form": form,
+            "selected_product": selected_product,
+        },
+    )
 
 # ✅ Admin-only view to register a new user
 @login_required
@@ -150,7 +242,7 @@ def inventory_dashboard(request):
     # 1. Low stock alerts
     low_stock_alerts = [
         p for p in Product.objects.prefetch_related("items").all()
-        if sum(item.current_stock for item in p.items.all()) < p.threshold
+        if p.get_available_stock() < p.threshold
     ]
     has_low_stock_alerts = len(low_stock_alerts) > 0
 
@@ -230,6 +322,7 @@ FILTER_OPTIONS = [
     ("all", "Show All"),
     ("in_stock", "In Stock"),
     ("low_stock", "Low Stock"),
+    ("expired_lots", "Show Expired Lots"),
 ]
 if QualityCheck:
     FILTER_OPTIONS.extend([
@@ -290,27 +383,42 @@ def product_list(request):
             return product.total_stock > 0
         if filter_key == "low_stock":
             return product.is_low_stock
+        if filter_key == "expired_lots":
+            return bool(product.expired_lots)
         if QualityCheck:
             if filter_key == "qc_passed":
-                return product.qc_passed
+                return bool(product.qc_passed_lots)
             if filter_key == "qc_pending":
-                return product.qc_pending
+                return bool(product.qc_pending_lots)
         return True
 
     visible_products = []
+    today = now().date()
     for product in products:
         product.full_items = product.get_full_items_in_stock()
         product.remaining_parts = product.get_remaining_parts()
-        product.total_stock = sum(item.current_stock for item in product.items.all())
+        product.total_stock = product.get_available_stock()
         product.is_low_stock = product.total_stock < product.threshold
+        product.expired_lots = []
+        product.qc_passed_lots = []
+        product.qc_pending_lots = []
+        qc_by_item_id = {}
         if QualityCheck:
-            qc_checks = qc_map.get(product.id, [])
-            qc_passed = any(
-                qc.status == QualityCheck.STATUS_COMPLETED and qc.result == "pass"
-                for qc in qc_checks
-            )
-            product.qc_passed = qc_passed
-            product.qc_pending = product.total_stock > 1 and not qc_passed
+            for qc in qc_map.get(product.id, []):
+                qc_by_item_id.setdefault(qc.product_item_id, []).append(qc)
+        for item in product.items.all():
+            if item.expiry_date and item.expiry_date <= today:
+                product.expired_lots.append(item.lot_number)
+            if QualityCheck:
+                item_checks = qc_by_item_id.get(item.id, [])
+                latest_check = item_checks[0] if item_checks else None
+                if latest_check and latest_check.status == QualityCheck.STATUS_COMPLETED and latest_check.result == "pass":
+                    product.qc_passed_lots.append(item.lot_number)
+                elif latest_check is None or latest_check.status == QualityCheck.STATUS_PENDING:
+                    product.qc_pending_lots.append(item.lot_number)
+        if QualityCheck:
+            product.qc_passed = bool(product.qc_passed_lots)
+            product.qc_pending = bool(product.qc_pending_lots)
         else:
             product.qc_passed = False
             product.qc_pending = False
@@ -322,6 +430,7 @@ def product_list(request):
         'products': visible_products,
         'filter_key': filter_key,
         'filter_options': FILTER_OPTIONS,
+        'quality_control_enabled': bool(QualityCheck),
         'location_tracking_enabled': location_tracking_enabled,
         'barcode_value': barcode_value,
     })
@@ -579,7 +688,7 @@ def supplier_products(request, supplier_id):
 
     mapped_products = supplier_to_products.get(supplier.id, [])
     for product in mapped_products:
-        product.total_stock = sum(item.current_stock for item in product.items.all())
+        product.total_stock = product.get_available_stock()
         product.location_name = product.location.name if product.location else "—"
 
     return render(
@@ -602,7 +711,7 @@ def location_products(request, location_id):
 
     mapped_products = location_to_products.get(location.id, [])
     for product in mapped_products:
-        product.total_stock = sum(item.current_stock for item in product.items.all())
+        product.total_stock = product.get_available_stock()
         product.location_name = product.location.name if product.location else "—"
 
     return render(

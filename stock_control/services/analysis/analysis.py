@@ -25,7 +25,7 @@ def get_dashboard_data():
     threshold_values = []
     stock_names = []
     for product in products:
-        total_stock = float(product.get_full_items_in_stock())
+        total_stock = float(product.get_available_stock())
         # Only include products with stock > 0 and either below threshold or at least 2 above
         if total_stock <= 0:
             continue
@@ -75,7 +75,7 @@ def get_dashboard_data():
     products_with_location = Product.objects.select_related("location").prefetch_related("items")
     for product in products_with_location:
         loc_name = product.location.name if product.location else "Unassigned"
-        total_stock = float(sum(item.current_stock for item in product.items.all()))
+        total_stock = float(product.get_available_stock())
         location_totals[loc_name] = location_totals.get(loc_name, 0) + total_stock
 
     # If location tracking module is enabled, use detailed location stock
@@ -162,7 +162,7 @@ def inventory_analysis_forecasting(request):
         products = products[:limit]
 
     product_names = [p.name for p in products]
-    current_stock = [float(sum(i.current_stock for i in p.items.all())) for p in products]
+    current_stock = [float(p.get_available_stock()) for p in products]
     stock_thresholds = [p.threshold for p in products]
     lead_times = [p.lead_time.days for p in products]
 

@@ -64,6 +64,11 @@
                             <th>Stock Threshold</th>
                             <th>Order Lead Times</th>
                             <th>Supplier</th>
+                            <th>Expired Lots</th>
+                            {% if quality_control_enabled %}
+                            <th>QC Passed Lots</th>
+                            <th>QC Pending Lots</th>
+                            {% endif %}
                             {% if location_tracking_enabled %}
                             <th>Locations</th>
                             {% endif %}
@@ -80,6 +85,41 @@
                                 <td>{{ product.threshold }}</td>
                                 <td>{{ product.lead_time }}</td>
                                 <td>{{ product.supplier_display }}</td>
+                                <td>
+                                    {% if product.expired_lots %}
+                                        <ul class="inline-list">
+                                            {% for lot_number in product.expired_lots %}
+                                                <li>{{ lot_number }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                                {% if quality_control_enabled %}
+                                <td>
+                                    {% if product.qc_passed_lots %}
+                                        <ul class="inline-list">
+                                            {% for lot_number in product.qc_passed_lots %}
+                                                <li>{{ lot_number }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if product.qc_pending_lots %}
+                                        <ul class="inline-list">
+                                            {% for lot_number in product.qc_pending_lots %}
+                                                <li>{{ lot_number }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                                {% endif %}
                                 {% if location_tracking_enabled %}
                                 <td>
                                     {% if product.location_stocks %}
@@ -96,7 +136,7 @@
                             </tr>
                         {% empty %}
                             <tr>
-                                <td colspan="8">No products found.</td>
+                                <td colspan="{% if quality_control_enabled and location_tracking_enabled %}12{% elif quality_control_enabled or location_tracking_enabled %}11{% else %}9{% endif %}">No products found.</td>
                             </tr>
                         {% endfor %}
                     </tbody>

@@ -1,7 +1,10 @@
 import datetime
+from decimal import Decimal, ROUND_HALF_UP
 
+from django.contrib import messages
 from django.db.models import F
 from django.shortcuts import redirect, render
+from django.utils import timezone
 
 from inventory.forms import WithdrawalForm
 from inventory.location_utils import (
@@ -32,6 +35,30 @@ def create_withdrawal(request):
     location_selection_required = location_state["selection_required"]
     selected_location_id = location_state["selected_id"]
 
+    def fmt_decimal(value):
+        if value is None:
+            return "0"
+        normalized = Decimal(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        text = format(normalized, "f")
+        return text.rstrip("0").rstrip(".") if "." in text else text
+
+    def render_form(current_form):
+        products = Product.objects.filter(
+            items__current_stock__gt=0,
+            items__expiry_date__gt=timezone.localdate(),
+        ).distinct().order_by("name")
+        return render(
+            request,
+            'inventory/create_withdrawal.html',
+            {
+                'form': current_form,
+                'products': products,
+                'location_choices': location_choices,
+                'location_selection_required': location_selection_required,
+                'selected_location_id': selected_location_id,
+            },
+        )
+
     if request.method == 'POST':
         form = WithdrawalForm(request.POST)
         posted_location_id = coerce_location_id(request.POST.get("selected_location"))
@@ -54,6 +81,8 @@ def create_withdrawal(request):
             raw_barcode = (form.cleaned_data.get("barcode") or "").strip()
             barcode = raw_barcode or (request.POST.get("barcode_manual") or "").strip()
             product_dropdown = request.POST.get("product_dropdown")
+            manual_lot_item_id = (request.POST.get("manual_lot_item_id") or "").strip()
+            barcode_mode = not bool(product_dropdown)
             resolved_product_uuid = (request.POST.get("resolved_product_uuid") or "").strip()
             lot_number = (request.POST.get("lot_number") or "").strip()
             expiry_date_raw = (request.POST.get("expiry_date") or "").strip()
@@ -69,11 +98,15 @@ def create_withdrawal(request):
             resolution_source = "manual_dropdown"
             if product_dropdown:
                 product = Product.objects.filter(id=product_dropdown).first()
-                item = (
-                    ProductItem.objects.filter(product=product, current_stock__gt=0)
-                    .order_by('-expiry_date')
-                    .first()
+                item_qs = ProductItem.objects.filter(
+                    product=product,
+                    current_stock__gt=0,
+                    expiry_date__gt=timezone.localdate(),
                 )
+                if manual_lot_item_id:
+                    item = item_qs.filter(id=manual_lot_item_id).first()
+                else:
+                    item = item_qs.order_by('-expiry_date').first()
             else:
                 parsed = parse_barcode_data(raw_barcode) if raw_barcode else None
                 resolution = resolve_product_from_barcode(parsed, raw_barcode)
@@ -94,6 +127,10 @@ def create_withdrawal(request):
                     item = item_qs.first()
 
 
+            if product_dropdown and manual_lot_item_id and not item:
+                form.add_error(None, "Select a valid lot for manual withdrawal.")
+                return render_form(form)
+
             if item:
                 withdrawal.product_item = item
                 withdrawal.barcode = barcode
@@ -102,30 +139,39 @@ def create_withdrawal(request):
                 if selected_location_id:
                     withdrawal.location_id = selected_location_id
 
+                partial_only_item = item.product_feature == 'volume' or item.units_per_quantity > 1
+
                 if item.product_feature == 'volume':
-                    volume_qty = form.cleaned_data.get('quantity', 0)
+                    withdrawal_mode = "part" if (barcode_mode or partial_only_item) else request.POST.get("withdrawal_mode", "full")
+                    if withdrawal_mode == "part":
+                        parts_withdrawn = 1 if barcode_mode else int(request.POST.get("parts_withdrawn") or 0)
+                        if parts_withdrawn <= 0:
+                            form.add_error(None, "Enter at least 1 part to withdraw.")
+                            return render_form(form)
+                        volume_qty = Decimal(parts_withdrawn) * Decimal(item.units_per_quantity)
+                        withdrawal.parts_withdrawn = parts_withdrawn
+                        withdrawal.withdrawal_type = 'part'
+                    else:
+                        volume_qty = Decimal(item.units_per_quantity) if barcode_mode else Decimal(form.cleaned_data.get('quantity', 0))
+                        if volume_qty <= 0:
+                            form.add_error(None, "Enter an amount greater than 0 to withdraw.")
+                            return render_form(form)
+                        withdrawal.parts_withdrawn = 0
+                        withdrawal.withdrawal_type = 'volume'
                     if volume_qty > item.current_stock:
                         form.add_error(None, "Insufficient stock for volume withdrawal.")
-                        products = Product.objects.filter(items__current_stock__gt=0).distinct().order_by("name")
-                        return render(
-                            request,
-                            'inventory/create_withdrawal.html',
-                            {
-                                'form': form,
-                                'products': products,
-                                'location_choices': location_choices,
-                                'location_selection_required': location_selection_required,
-                                'selected_location_id': selected_location_id,
-                            },
-                        )
+                        return render_form(form)
                     withdrawal.quantity = volume_qty
                     item.current_stock = F('current_stock') - volume_qty
 
                 else:
-                    withdrawal_mode = request.POST.get("withdrawal_mode", "full")
+                    withdrawal_mode = "part" if (barcode_mode and item.units_per_quantity > 1) or (not barcode_mode and partial_only_item) else "full"
 
                     if withdrawal_mode == "part":
-                        parts_withdrawn = int(request.POST.get("parts_withdrawn") or 0)
+                        parts_withdrawn = 1 if barcode_mode else int(request.POST.get("parts_withdrawn") or 0)
+                        if parts_withdrawn <= 0:
+                            form.add_error(None, "Enter at least 1 part to withdraw.")
+                            return render_form(form)
                         units_per_item = item.units_per_quantity
                         current_partial = item.accumulated_partial
                         total_units = current_partial + parts_withdrawn
@@ -136,41 +182,28 @@ def create_withdrawal(request):
                         if full_items > 0:
                             if full_items > item.current_stock:
                                 form.add_error(None, "Insufficient stock for partial withdrawal conversion.")
-                                products = Product.objects.filter(items__current_stock__gt=0).distinct().order_by("name")
-                                return render(
-                                    request,
-                                    'inventory/create_withdrawal.html',
-                                    {
-                                        'form': form,
-                                        'products': products,
-                                        'location_choices': location_choices,
-                                        'location_selection_required': location_selection_required,
-                                        'selected_location_id': selected_location_id,
-                                    },
-                                )
+                                return render_form(form)
                             item.current_stock = F('current_stock') - full_items
                         item.accumulated_partial = remaining_partial
 
                         withdrawal.quantity = full_items
                         withdrawal.parts_withdrawn = parts_withdrawn
+                        withdrawal.withdrawal_type = 'part'
 
                     else:
-                        full_items = form.cleaned_data.get("quantity", 0)
+                        full_items = Decimal("1") if barcode_mode else Decimal(form.cleaned_data.get("quantity", 0))
+                        if full_items <= 0:
+                            form.add_error(None, "Enter at least 1 item to withdraw.")
+                            return render_form(form)
+                        if full_items != full_items.to_integral_value():
+                            form.add_error(None, "Full item withdrawal must be a whole number.")
+                            return render_form(form)
                         if full_items > item.current_stock:
                             form.add_error(None, "Insufficient stock for full withdrawal.")
-                            products = Product.objects.filter(items__current_stock__gt=0).distinct().order_by("name")
-                            return render(
-                                request,
-                                'inventory/create_withdrawal.html',
-                                {
-                                    'form': form,
-                                    'products': products,
-                                    'location_choices': location_choices,
-                                    'location_selection_required': location_selection_required,
-                                    'selected_location_id': selected_location_id,
-                                },
-                            )
+                            return render_form(form)
                         withdrawal.quantity = full_items
+                        withdrawal.parts_withdrawn = 0
+                        withdrawal.withdrawal_type = 'unit'
                         item.current_stock = F('current_stock') - full_items
 
                 item.save()
@@ -178,7 +211,16 @@ def create_withdrawal(request):
                 withdrawal.save()
                 if selected_location_id:
                     request.session[ACTIVE_USER_LOCATION_SESSION_KEY] = selected_location_id
-                return redirect('inventory:dashboard')
+                if item.product_feature == 'volume' and (barcode_mode or withdrawal.withdrawal_type == 'part'):
+                    success_message = f"{fmt_decimal(withdrawal.quantity)} mL withdrawn from {item.product.name} (Lot {item.lot_number})."
+                else:
+                    success_message = f"Withdrawal successful for {item.product.name} (Lot {item.lot_number})."
+                messages.success(
+                    request,
+                    success_message,
+                    extra_tags="withdrawal_success",
+                )
+                return redirect('data_collection_2:create_withdrawal')
             else:
                 form.add_error(None, "Product item not found. Check barcode, lot number, or expiry date.")
         else:
@@ -190,15 +232,4 @@ def create_withdrawal(request):
     else:
         form = WithdrawalForm()
 
-    products = Product.objects.filter(items__current_stock__gt=0).distinct().order_by("name")
-    return render(
-        request,
-        'inventory/create_withdrawal.html',
-        {
-            'form': form,
-            'products': products,
-            'location_choices': location_choices,
-            'location_selection_required': location_selection_required,
-            'selected_location_id': selected_location_id,
-        },
-    )
+    return render_form(form)

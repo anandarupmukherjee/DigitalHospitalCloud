@@ -126,6 +126,13 @@ def register_stock(request):
         if selected_location_id:
             request.session[ACTIVE_USER_LOCATION_SESSION_KEY] = selected_location_id
 
+        if item.is_expired:
+            messages.error(
+                request,
+                "Lot has expired.",
+                extra_tags="register_stock expired_lot",
+            )
+
         if created_new_item:
             messages.info(
                 request,
