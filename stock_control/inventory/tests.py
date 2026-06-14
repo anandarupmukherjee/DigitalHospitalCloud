@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 from decimal import Decimal
 import json
+import io
 
 from django.contrib.auth.models import Group, User
 from django.contrib.messages.storage.fallback import FallbackStorage
@@ -15,6 +16,7 @@ from inventory.views import delete_products
 from services.data_collection_2.create_withdrawal import create_withdrawal
 from services.data_collection.barcode_resolution import resolve_product_from_barcode
 from services.data_collection.data_collection import get_product_by_id, parse_barcode_data
+from services.reporting.reporting import download_report
 from services.data_storage.models import (
     Location,
     Product,
@@ -29,6 +31,7 @@ from services.data_storage.models import (
 from solutions.analytics.views import track_qc
 from solutions.quality_control.models import QualityCheck
 from solutions.quality_control.views import create_check
+from openpyxl import load_workbook
 
 
 class BarcodeParserTests(TestCase):
@@ -48,6 +51,21 @@ class BarcodeParserTests(TestCase):
         self.assertEqual(parsed["alias_identifier_value"], "00847627008039")
         self.assertEqual(parsed["lot_number"], "092625A")
         self.assertEqual(parsed["expiry_date"], "31.03.2027")
+
+    def test_parse_gs1_with_lot_then_expiry_then_ai_240(self):
+        parsed = parse_barcode_data("010401563098474910N15097172702072400671866300192860-09911250827")
+        self.assertEqual(parsed["barcode_type"], "GS1")
+        self.assertEqual(parsed["gtin"], "04015630984749")
+        self.assertEqual(parsed["lot_number"], "N15097")
+        self.assertEqual(parsed["expiry_date"], "07.02.2027")
+        self.assertEqual(parsed["additional_product_id"], "0671866300192860-09911250827")
+
+    def test_parse_live_ultraview_style_barcode(self):
+        parsed = parse_barcode_data("010401563097217310N15098172706102400526980600192760-50011250917")
+        self.assertEqual(parsed["gtin"], "04015630972173")
+        self.assertEqual(parsed["lot_number"], "N15098")
+        self.assertEqual(parsed["expiry_date"], "10.06.2027")
+        self.assertEqual(parsed["additional_product_id"], "0526980600192760-50011250917")
 
 
 class BarcodeResolverTests(TestCase):
@@ -318,6 +336,55 @@ class WorkflowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(str(self.partial_item.id), response.content.decode("utf-8"))
 
+    def test_qc_create_check_renders_product_and_lot_lookup_inputs(self):
+        request = self._build_get_request("/quality-control/checks/create/")
+        response = create_check(request)
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertIn('name="product_name_lookup"', content)
+        self.assertIn('name="lot_number_lookup"', content)
+        self.assertIn(f'data-product-name="{self.product.name}"', content)
+        self.assertIn(f'data-lot-number="{self.partial_item.lot_number}"', content)
+
+    def test_qc_create_check_accepts_lot_lookup_without_dropdown_selection(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("quality_control:create_check"),
+            data={
+                "product_item": "",
+                "product_name_lookup": self.product.name,
+                "lot_number_lookup": self.partial_item.lot_number,
+                "status": QualityCheck.STATUS_COMPLETED,
+                "result": "pass",
+                "test_reference": "QC-ALT-1",
+                "notes": "Resolved from lookup fields",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        qc = QualityCheck.objects.latest("id")
+        self.assertEqual(qc.product_item_id, self.partial_item.id)
+        self.assertEqual(qc.test_reference, "QC-ALT-1")
+
+    def test_qc_create_check_requires_disambiguation_for_product_name_only(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("quality_control:create_check"),
+            data={
+                "product_item": "",
+                "product_name_lookup": self.product.name,
+                "lot_number_lookup": "",
+                "status": QualityCheck.STATUS_PENDING,
+                "result": "",
+                "test_reference": "QC-AMBIG",
+                "notes": "",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "Multiple lots match that selection. Add the lot number or use the product lot dropdown.",
+        )
+
     def test_delete_product_archives_snapshot_and_preserves_history(self):
         ProductIdentifier.objects.create(
             product=self.product,
@@ -391,6 +458,81 @@ class WorkflowTests(TestCase):
         response = track_qc(request)
         self.assertEqual(response.status_code, 200)
         self.assertIn("Track QC", response.content.decode("utf-8"))
+
+    def test_download_report_preview_is_paginated_to_100_rows(self):
+        for index in range(101):
+            StockRegistration.objects.create(
+                product_item=self.item,
+                quantity=1,
+                user=self.user,
+                product_code=f"CODE-{index}",
+                product_name=f"Product {index}",
+                lot_number=f"LOT-{index}",
+                expiry_date=date(2027, 1, 1),
+            )
+
+        request = self._build_get_request("/analytics/reports/download/")
+        response = download_report(request)
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertIn("Page 1 of 2", content)
+        self.assertIn("Showing 1-100 of 101 records.", content)
+        self.assertIn("No. of Products in Stock", content)
+
+    def test_download_report_csv_contains_requested_columns(self):
+        QualityCheck.objects.create(
+            product_item=self.item,
+            performed_by=self.user,
+            status=QualityCheck.STATUS_COMPLETED,
+            result="pass",
+        )
+        Withdrawal.objects.create(
+            product_item=self.item,
+            quantity=Decimal("1.00"),
+            withdrawal_type="unit",
+            user=self.user,
+        )
+        StockRegistration.objects.create(
+            product_item=self.item,
+            quantity=2,
+            user=self.user,
+        )
+
+        request = self._build_get_request(
+            "/analytics/reports/download/",
+            {"download": "csv"},
+        )
+        response = download_report(request)
+        self.assertEqual(response.status_code, 200)
+        csv_text = response.content.decode("utf-8")
+        self.assertIn("Date (Registration),Product,Product Code,Lot Number,Expire Date,Quantity,No. of Products in Stock,Location,User (Registered),User (Withdraw),Date Withdraw,QC Status,Person QC'ed,Date QC'ed", csv_text)
+        self.assertIn("Passed", csv_text)
+
+    def test_download_report_excel_includes_product_summary_sheet(self):
+        StockRegistration.objects.create(
+            product_item=self.item,
+            quantity=2,
+            user=self.user,
+        )
+
+        request = self._build_get_request(
+            "/analytics/reports/download/",
+            {"download": "excel"},
+        )
+        response = download_report(request)
+        self.assertEqual(response.status_code, 200)
+
+        workbook = load_workbook(io.BytesIO(response.content))
+        self.assertIn("Inventory Report", workbook.sheetnames)
+        self.assertIn("Product Summary", workbook.sheetnames)
+
+        summary_sheet = workbook["Product Summary"]
+        headers = [summary_sheet.cell(row=1, column=idx).value for idx in range(1, 5)]
+        self.assertEqual(headers, ["Product", "Product Code", "Items In Stock", "Expired Lots"])
+        values = [summary_sheet.cell(row=2, column=idx).value for idx in range(1, 5)]
+        self.assertEqual(values[0], "NKX3.1")
+        self.assertEqual(values[2], "17.50")
+        self.assertIn("EXP001", values[3])
 
     def test_stock_admin_lookup_uses_alias_resolution(self):
         self.client.force_login(self.user)

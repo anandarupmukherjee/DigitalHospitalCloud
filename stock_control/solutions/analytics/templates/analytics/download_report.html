@@ -1,64 +1,77 @@
-{% load custom_tags %}
 {% load static %}
-{% load feature_flags %}
+{% load custom_tags %}
 
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Export Data</title>
+    <title>Inventory Report</title>
     <link rel="stylesheet" href="{% static 'inventory/styles.css' %}">
-    <script src="{% static 'inventory/report_preview.js' %}" defer></script>
-
 </head>
 <body>
-
-    <!-- Navigation Bar -->
     {% include "includes/navbar.html" %}
 
+    <div class="dashboard-container">
+      <h2>Inventory Activity Report</h2>
 
-  <div class="dashboard-container">
-    <h2>Export Data from Inventory System</h2>
+      <form method="get" id="downloadForm" style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+        <div>
+          <label>Start Date:</label>
+          <input type="date" name="start_date" value="{{ start_date }}">
+        </div>
 
-    <form method="get" id="downloadForm">
-        <label>Select Model:</label>
-        <select name="model" id="modelSelect">
-          {% for model in models %}
-            <option value="{{ model }}" {% if model == selected_model %}selected{% endif %}>{{ model }}</option>
-          {% endfor %}
-        </select>
-      
-        <label>Start Date:</label>
-        <input type="date" name="start_date" value="{{ start_date }}">
-      
-        <label>End Date:</label>
-        <input type="date" name="end_date" value="{{ end_date }}">
-      
-        <button type="submit" name="download" value="excel">Download Excel</button>
-        <button type="submit" name="download" value="csv">Download CSV</button>
+        <div>
+          <label>End Date:</label>
+          <input type="date" name="end_date" value="{{ end_date }}">
+        </div>
+
+        <div style="display:flex; gap:8px;">
+          <button type="submit" name="download" value="excel">Download Excel</button>
+          <button type="submit" name="download" value="csv">Download CSV</button>
+        </div>
       </form>
-      
+
       <hr>
-      <h3>Preview: {{ selected_model }}</h3>
-      <table>
-        <thead>
-          <tr>
-            {% for field in fields %}
-              <th>{{ field }}</th>
-            {% endfor %}
-          </tr>
-        </thead>
-        <tbody>
-          {% for obj in data %}
+      <h3>Preview</h3>
+      <p class="info-text">Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }} records.</p>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
             <tr>
-              {% for field in fields %}
-                <td>{{ obj|attr:field }}</td>
+              {% for key, label in columns %}
+                <th>{{ label }}</th>
               {% endfor %}
             </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-   
-      
+          </thead>
+          <tbody>
+            {% for row in rows %}
+              <tr>
+                {% for key, label in columns %}
+                  <td>{{ row|get_item:key }}</td>
+                {% endfor %}
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="{{ columns|length }}">No records found.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex; gap:8px; align-items:center; margin-top:16px; flex-wrap:wrap;">
+        {% if page_obj.has_previous %}
+          <a href="?page=1{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" class="btn btn-secondary">First</a>
+          <a href="?page={{ page_obj.previous_page_number }}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" class="btn btn-secondary">Previous</a>
+        {% endif %}
+
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" class="btn btn-secondary">Next</a>
+          <a href="?page={{ page_obj.paginator.num_pages }}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" class="btn btn-secondary">Last</a>
+        {% endif %}
+      </div>
     </div>
 </body>
 </html>

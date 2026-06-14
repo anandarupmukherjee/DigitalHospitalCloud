@@ -15,6 +15,13 @@
             <h2>Record Quality Check</h2>
             <form method="post">
                 {% csrf_token %}
+                {% if form.non_field_errors %}
+                  <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                      <p>{{ error }}</p>
+                    {% endfor %}
+                  </div>
+                {% endif %}
                 {% if location_choices %}
                   <div class="form-group">
                     <label for="id_qc_location">Quality Check Location</label>
@@ -28,7 +35,94 @@
                     </select>
                   </div>
                 {% endif %}
-                {{ form.as_p }}
+                <div class="form-group">
+                    {{ form.product_item.label_tag }}
+                    <select name="{{ form.product_item.html_name }}" id="{{ form.product_item.id_for_label }}">
+                      <option value="">---------</option>
+                      {% with selected_product_item=form.product_item.value|stringformat:"s" %}
+                        {% for option in form.product_item_options %}
+                          <option
+                            value="{{ option.id }}"
+                            data-product-name="{{ option.product_name }}"
+                            data-lot-number="{{ option.lot_number }}"
+                            {% if selected_product_item == option.id|stringformat:"s" %}selected{% endif %}
+                          >
+                            {{ option.label }}
+                          </option>
+                        {% endfor %}
+                      {% endwith %}
+                    </select>
+                    {% if form.product_item.help_text %}
+                      <small>{{ form.product_item.help_text }}</small>
+                    {% endif %}
+                    {% for error in form.product_item.errors %}
+                      <p class="errorlist">{{ error }}</p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    {{ form.product_name_lookup.label_tag }}
+                    {{ form.product_name_lookup }}
+                    <datalist id="qc-product-name-options">
+                      {% for product_name in form.product_name_options %}
+                        <option value="{{ product_name }}"></option>
+                      {% endfor %}
+                    </datalist>
+                    {% if form.product_name_lookup.help_text %}
+                      <small>{{ form.product_name_lookup.help_text }}</small>
+                    {% endif %}
+                    {% for error in form.product_name_lookup.errors %}
+                      <p class="errorlist">{{ error }}</p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    {{ form.lot_number_lookup.label_tag }}
+                    {{ form.lot_number_lookup }}
+                    <datalist id="qc-lot-number-options">
+                      {% for lot_number in form.lot_number_options %}
+                        <option value="{{ lot_number }}"></option>
+                      {% endfor %}
+                    </datalist>
+                    {% if form.lot_number_lookup.help_text %}
+                      <small>{{ form.lot_number_lookup.help_text }}</small>
+                    {% endif %}
+                    {% for error in form.lot_number_lookup.errors %}
+                      <p class="errorlist">{{ error }}</p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    {{ form.status.label_tag }}
+                    {{ form.status }}
+                    {% for error in form.status.errors %}
+                      <p class="errorlist">{{ error }}</p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    {{ form.test_reference.label_tag }}
+                    {{ form.test_reference }}
+                    {% for error in form.test_reference.errors %}
+                      <p class="errorlist">{{ error }}</p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    {{ form.result.label_tag }}
+                    {{ form.result }}
+                    {% for error in form.result.errors %}
+                      <p class="errorlist">{{ error }}</p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    {{ form.notes.label_tag }}
+                    {{ form.notes }}
+                    {% for error in form.notes.errors %}
+                      <p class="errorlist">{{ error }}</p>
+                    {% endfor %}
+                </div>
                 <button type="submit" class="btn btn-primary">Save</button>
             </form>
         </div>
@@ -56,5 +150,90 @@
       });
     </script>
     {% endif %}
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        const productNameInput = document.getElementById("id_product_name_lookup");
+        const lotLookupInput = document.getElementById("id_lot_number_lookup");
+        const lotSelect = document.getElementById("id_product_item");
+        const lotDatalist = document.getElementById("qc-lot-number-options");
+        if (!productNameInput || !lotLookupInput || !lotSelect) {
+          return;
+        }
+
+        const baseOptions = Array.from(lotSelect.options)
+          .filter(option => option.value)
+          .map(option => ({
+            value: option.value,
+            label: option.textContent,
+            productName: option.dataset.productName || "",
+            lotNumber: option.dataset.lotNumber || "",
+            selected: option.selected,
+          }));
+
+        const rebuildLotDatalist = (options) => {
+          if (!lotDatalist) {
+            return;
+          }
+          lotDatalist.innerHTML = "";
+          options.forEach(option => {
+            const datalistOption = document.createElement("option");
+            datalistOption.value = option.lotNumber;
+            lotDatalist.appendChild(datalistOption);
+          });
+        };
+
+        const repopulateLotSelect = (productName) => {
+          const normalizedProductName = productName.trim().toLowerCase();
+          const previousValue = lotSelect.value;
+          const matchingOptions = normalizedProductName
+            ? baseOptions.filter(option => option.productName.toLowerCase() === normalizedProductName)
+            : baseOptions;
+
+          lotSelect.innerHTML = '<option value="">---------</option>';
+          matchingOptions.forEach(option => {
+            const selectOption = document.createElement("option");
+            selectOption.value = option.value;
+            selectOption.textContent = option.label;
+            selectOption.dataset.productName = option.productName;
+            selectOption.dataset.lotNumber = option.lotNumber;
+            if (option.value === previousValue) {
+              selectOption.selected = true;
+            }
+            lotSelect.appendChild(selectOption);
+          });
+
+          if (matchingOptions.length === 1 && !lotSelect.value) {
+            lotSelect.value = matchingOptions[0].value;
+          }
+
+          rebuildLotDatalist(matchingOptions);
+        };
+
+        const syncLookupFieldsFromLot = () => {
+          const selectedOption = lotSelect.options[lotSelect.selectedIndex];
+          if (!selectedOption || !selectedOption.value) {
+            return;
+          }
+          productNameInput.value = selectedOption.dataset.productName || productNameInput.value;
+          lotLookupInput.value = selectedOption.dataset.lotNumber || lotLookupInput.value;
+        };
+
+        repopulateLotSelect(productNameInput.value);
+        if (lotSelect.value) {
+          syncLookupFieldsFromLot();
+        }
+
+        productNameInput.addEventListener("change", function() {
+          repopulateLotSelect(productNameInput.value);
+          if (lotSelect.value) {
+            syncLookupFieldsFromLot();
+          } else if (!productNameInput.value.trim()) {
+            lotLookupInput.value = "";
+          }
+        });
+
+        lotSelect.addEventListener("change", syncLookupFieldsFromLot);
+      });
+    </script>
 </body>
 </html>

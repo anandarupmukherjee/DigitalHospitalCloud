@@ -33,6 +33,7 @@ def _blank_result():
         "lot_number": "",
         "expiry_date": "",
         "manufacture_date": "",
+        "additional_product_id": "",
         "alias_identifier_type": "RAW_BARCODE",
         "alias_identifier_value": "",
         "format": None,
@@ -85,6 +86,75 @@ def _extract_ai_value(payload, start_index):
     return value, next_index
 
 
+def _find_next_known_ai(payload, start_index, candidates):
+    positions = []
+    for candidate in candidates:
+        idx = payload.find(candidate, start_index)
+        if idx != -1:
+            positions.append(idx)
+    return min(positions) if positions else -1
+
+
+def _parse_flattened_gs1(payload, result):
+    if not (payload.startswith("01") and len(payload) > 16):
+        return False
+
+    gtin = payload[2:16]
+    _store_codes(result, gtin)
+    result["gtin"] = gtin
+    i = 16
+
+    while i < len(payload):
+        i = _skip_ai_separators(payload, i)
+        if i >= len(payload):
+            break
+
+        if payload[i:i + 2] == "17" and len(payload) >= i + 8:
+            result["expiry_date"] = _format_gs1_date(payload[i + 2:i + 8])
+            i += 8
+            continue
+
+        if payload[i:i + 2] == "11" and len(payload) >= i + 8:
+            result["manufacture_date"] = _format_gs1_date(payload[i + 2:i + 8])
+            i += 8
+            continue
+
+        if payload[i:i + 2] == "10":
+            ai_17_candidates = []
+            search_pos = i + 2
+            while True:
+                candidate = payload.find("17", search_pos)
+                if candidate == -1:
+                    break
+                if len(payload) >= candidate + 8 and payload[candidate + 2:candidate + 8].isdigit():
+                    trailing = payload[candidate + 8:candidate + 11]
+                    if trailing in {"240", "11"} or len(payload) == candidate + 8 or payload[candidate + 8] in AI_TERMINATORS:
+                        ai_17_candidates.append(candidate)
+                search_pos = candidate + 1
+            next_ai = ai_17_candidates[0] if ai_17_candidates else _find_next_known_ai(payload, i + 2, ["11", "240"])
+            if next_ai == -1:
+                lot_value, next_index = _extract_ai_value(payload, i + 2)
+                result["lot_number"] = lot_value
+                i = next_index
+            else:
+                result["lot_number"] = payload[i + 2:next_ai]
+                i = next_ai
+            continue
+
+        if payload[i:i + 3] == "240":
+            additional_value, next_index = _extract_ai_value(payload, i + 3)
+            result["additional_product_id"] = additional_value
+            i = next_index
+            continue
+
+        break
+
+    result["barcode_type"] = "GS1"
+    result["format"] = "GS1_flat"
+    _set_alias(result, "GTIN", result["gtin"])
+    return True
+
+
 def _set_alias(result, identifier_type, identifier_value):
     result["alias_identifier_type"] = identifier_type
     result["alias_identifier_value"] = (identifier_value or "").strip()
@@ -118,6 +188,7 @@ def parse_barcode_data(raw):
         product_code = re.search(r"\(01\)(\d{14})", payload)
         expiry = re.search(r"\(17\)(\d{6})", payload)
         lot = re.search(r"\(10\)([^\(]+)", payload)
+        additional_id = re.search(r"\(240\)([^\(]+)", payload)
 
         if product_code:
             gtin = product_code.group(1)
@@ -129,6 +200,8 @@ def parse_barcode_data(raw):
             lot_value = lot.group(1)
             lot_value = lot_value.split("\x1d", 1)[0]
             result["lot_number"] = lot_value
+        if additional_id:
+            result["additional_product_id"] = additional_id.group(1).split("\x1d", 1)[0]
         result["barcode_type"] = "GS1_BRACKETED"
         result["format"] = "GS1"
         if product_code:
@@ -139,27 +212,7 @@ def parse_barcode_data(raw):
 
     # Case 3: Flattened GS1 (strict)
     try:
-        if payload.startswith("01") and len(payload) > 16:
-            gtin = payload[2:16]
-            _store_codes(result, gtin)
-            result["gtin"] = gtin
-            i = 16
-
-            if payload[i:i + 2] == "17":
-                expiry_raw = payload[i + 2:i + 8]
-                result["expiry_date"] = _format_gs1_date(expiry_raw)
-                i += 8
-
-            i = _skip_ai_separators(payload, i)
-
-            if payload[i:i + 2] == "10":
-                lot_value, next_index = _extract_ai_value(payload, i + 2)
-                result["lot_number"] = lot_value
-                i = next_index
-
-            result["barcode_type"] = "GS1"
-            result["format"] = "GS1_flat"
-            _set_alias(result, "GTIN", result["gtin"])
+        if _parse_flattened_gs1(payload, result):
             return result
     except Exception:
         pass

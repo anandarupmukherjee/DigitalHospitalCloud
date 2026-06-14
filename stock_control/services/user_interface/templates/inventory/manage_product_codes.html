@@ -76,6 +76,36 @@
             padding: 2px 8px;
             border-radius: 6px;
         }
+        .barcode-preview-card {
+            border: 1px solid #d9e2ec;
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 14px 16px;
+            margin-top: 12px;
+        }
+        .barcode-preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 10px 16px;
+            margin-top: 10px;
+        }
+        .barcode-preview-grid dt {
+            font-size: 0.85rem;
+            color: #51606f;
+            margin: 0 0 4px;
+        }
+        .barcode-preview-grid dd {
+            margin: 0;
+            font-weight: 600;
+            word-break: break-word;
+        }
+        .barcode-preview-status {
+            margin: 0;
+            color: #51606f;
+        }
+        .barcode-preview-error {
+            color: #b00020;
+        }
     </style>
 </head>
 <body>
@@ -196,6 +226,43 @@
                     <label for="id_raw_barcode_sample">Raw Barcode Sample (optional)</label>
                     <input id="id_raw_barcode_sample" type="text" name="raw_barcode_sample">
                 </p>
+                <div class="barcode-preview-card" id="barcode-preview-card" style="display:none;">
+                    <p class="barcode-preview-status" id="barcode-preview-status">Paste a raw barcode sample to preview extracted fields.</p>
+                    <dl class="barcode-preview-grid">
+                        <div>
+                            <dt>Barcode Type</dt>
+                            <dd id="barcode-preview-type">—</dd>
+                        </div>
+                        <div>
+                            <dt>Format</dt>
+                            <dd id="barcode-preview-format">—</dd>
+                        </div>
+                        <div>
+                            <dt>GTIN / Product Code</dt>
+                            <dd id="barcode-preview-gtin">—</dd>
+                        </div>
+                        <div>
+                            <dt>Lot Number</dt>
+                            <dd id="barcode-preview-lot">—</dd>
+                        </div>
+                        <div>
+                            <dt>Expiry Date</dt>
+                            <dd id="barcode-preview-expiry">—</dd>
+                        </div>
+                        <div>
+                            <dt>Manufacture Date</dt>
+                            <dd id="barcode-preview-manufacture">—</dd>
+                        </div>
+                        <div>
+                            <dt>Additional Product ID</dt>
+                            <dd id="barcode-preview-additional">—</dd>
+                        </div>
+                        <div>
+                            <dt>Alias Identifier</dt>
+                            <dd id="barcode-preview-alias">—</dd>
+                        </div>
+                    </dl>
+                </div>
                 <p>
                     <label for="id_alias_supplier_name">Supplier Name (optional)</label>
                     <input id="id_alias_supplier_name" type="text" name="alias_supplier_name">
@@ -330,6 +397,124 @@
             document.addEventListener("keydown", function (event) {
                 if (event.key === "Escape") closeModal();
             });
+        })();
+
+        (function () {
+            const rawInput = document.getElementById("id_raw_barcode_sample");
+            const previewCard = document.getElementById("barcode-preview-card");
+            const statusNode = document.getElementById("barcode-preview-status");
+            if (!rawInput || !previewCard || !statusNode) {
+                return;
+            }
+
+            const targets = {
+                type: document.getElementById("barcode-preview-type"),
+                format: document.getElementById("barcode-preview-format"),
+                gtin: document.getElementById("barcode-preview-gtin"),
+                lot: document.getElementById("barcode-preview-lot"),
+                expiry: document.getElementById("barcode-preview-expiry"),
+                manufacture: document.getElementById("barcode-preview-manufacture"),
+                additional: document.getElementById("barcode-preview-additional"),
+                alias: document.getElementById("barcode-preview-alias"),
+            };
+
+            function buildAppUrls(path) {
+                if (path[0] !== "/") {
+                    path = "/" + path;
+                }
+                const urls = [path];
+                if (window.location.pathname.startsWith("/histopath/")) {
+                    urls.unshift(`/histopath${path}`);
+                }
+                return [...new Set(urls)];
+            }
+
+            function setValue(node, value) {
+                if (node) {
+                    node.textContent = value || "—";
+                }
+            }
+
+            function resetPreview(message, isError) {
+                previewCard.style.display = "block";
+                statusNode.textContent = message || "Paste a raw barcode sample to preview extracted fields.";
+                statusNode.classList.toggle("barcode-preview-error", Boolean(isError));
+                setValue(targets.type, "");
+                setValue(targets.format, "");
+                setValue(targets.gtin, "");
+                setValue(targets.lot, "");
+                setValue(targets.expiry, "");
+                setValue(targets.manufacture, "");
+                setValue(targets.additional, "");
+                setValue(targets.alias, "");
+            }
+
+            let timer = null;
+            async function previewBarcode(raw) {
+                const barcode = (raw || "").trim();
+                if (!barcode) {
+                    previewCard.style.display = "none";
+                    return;
+                }
+
+                resetPreview("Parsing barcode sample...", false);
+                try {
+                    let payload = null;
+                    let lastError = null;
+                    for (const url of buildAppUrls(`/data/parse-barcode/?raw=${encodeURIComponent(barcode)}`)) {
+                        try {
+                            const response = await fetch(url, {
+                                headers: { Accept: "application/json" },
+                            });
+                            const contentType = (response.headers.get("content-type") || "").toLowerCase();
+                            if (!contentType.includes("application/json")) {
+                                continue;
+                            }
+                            payload = await response.json();
+                            if (!response.ok) {
+                                throw new Error(payload.error || "Barcode parsing failed.");
+                            }
+                            break;
+                        } catch (error) {
+                            lastError = error;
+                        }
+                    }
+                    if (!payload) {
+                        throw lastError || new Error("Barcode parsing failed.");
+                    }
+
+                    previewCard.style.display = "block";
+                    statusNode.textContent = "Detected fields from raw barcode sample:";
+                    statusNode.classList.remove("barcode-preview-error");
+                    setValue(targets.type, payload.barcode_type);
+                    setValue(targets.format, payload.format);
+                    setValue(targets.gtin, payload.gtin || payload.raw_product_code || payload.product_code);
+                    setValue(targets.lot, payload.lot_number);
+                    setValue(targets.expiry, payload.expiry_date);
+                    setValue(targets.manufacture, payload.manufacture_date);
+                    setValue(targets.additional, payload.additional_product_id);
+                    setValue(
+                        targets.alias,
+                        [payload.alias_identifier_type, payload.alias_identifier_value].filter(Boolean).join(": ")
+                    );
+                } catch (error) {
+                    resetPreview(error.message, true);
+                }
+            }
+
+            function schedulePreview() {
+                const raw = rawInput.value;
+                if (timer) {
+                    clearTimeout(timer);
+                }
+                timer = setTimeout(function () {
+                    previewBarcode(raw);
+                }, 180);
+            }
+
+            rawInput.addEventListener("input", schedulePreview);
+            rawInput.addEventListener("change", schedulePreview);
+            rawInput.addEventListener("blur", schedulePreview);
         })();
     </script>
 </body>
