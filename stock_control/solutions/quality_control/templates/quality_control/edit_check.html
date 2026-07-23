@@ -1,0 +1,61 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Edit Quality Check</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'inventory/styles.css' %}">
+</head>
+<body>
+    {% include "includes/navbar.html" %}
+
+    <div class="dashboard-container">
+        <div class="card form-card">
+            <h2>Edit Quality Check</h2>
+
+            <p class="info-text">
+                {{ check.product_item.product.name }}
+                &mdash; Lot <strong>{{ check.product_item.lot_number }}</strong>
+                (expiry {{ check.product_item.expiry_date|date:"Y-m-d" }})
+            </p>
+
+            <form method="post">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                  <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                      <p>{{ error }}</p>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+
+                <div class="form-group">
+                    {{ form.result.label_tag }}
+                    {{ form.result }}
+                    {% for error in form.result.errors %}<p class="alert alert-danger">{{ error }}</p>{% endfor %}
+                    <small>Choose Pass, Fail, or Pending. Setting a result signs the check off; Pending clears it.</small>
+                </div>
+
+                <div class="form-group">
+                    {{ form.test_reference.label_tag }}
+                    {{ form.test_reference }}
+                    {% for error in form.test_reference.errors %}<p class="alert alert-danger">{{ error }}</p>{% endfor %}
+                </div>
+
+                <div class="form-group">
+                    {{ form.notes.label_tag }}
+                    {{ form.notes }}
+                    {% for error in form.notes.errors %}<p class="alert alert-danger">{{ error }}</p>{% endfor %}
+                    <small>A change of result is automatically noted here (who and when).</small>
+                </div>
+
+                <div style="display:flex; gap:8px; margin-top:12px;">
+                    <button type="submit" class="btn btn-primary">Save changes</button>
+                    <a href="{% url 'quality_control:list_checks' %}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

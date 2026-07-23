@@ -59,6 +59,7 @@
                             <th>Lot</th>
                             <th>Result</th>
                             <th>When</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -69,10 +70,20 @@
                             <td>{{ check.product_item.lot_number }}</td>
                             <td>{{ check.get_result_display|default:"Pending" }}</td>
                             <td>{{ check.created_at|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                {% if not check.get_result_display and quality_control_enabled and check.product_item %}
+                                    <a class="btn btn-primary btn-sm"
+                                       href="{% url 'quality_control:create_check' %}?product_item_id={{ check.product_item.id }}">
+                                        Record QC
+                                    </a>
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="5">No quality checks found.</td>
+                            <td colspan="6">No quality checks found.</td>
                         </tr>
                         {% endfor %}
                     </tbody>

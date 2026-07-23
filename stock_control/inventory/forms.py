@@ -148,21 +148,42 @@ class ProductItemForm(forms.ModelForm):
             self.fields['product_feature'].initial = 'volume'
             self.fields['units_per_quantity'].initial = Decimal('1.00')
             self.fields['accumulated_partial'].initial = 0
-        if (self.instance.pk and self.instance.product_feature == 'volume') or self.fields['product_feature'].initial == 'volume':
+        if self.instance.pk and self.instance.product_feature == 'volume':
             self.fields['full_volume'].initial = self.instance.current_stock or Decimal('0.00')
             self.fields['partial_withdrawal_volume'].initial = self.instance.units_per_quantity or Decimal('1.00')
+        elif not self.instance.pk:
+            # New product (defaults to volume): sensible step, blank full volume
+            # (avoid pre-filling 0.00, which is below the 0.01 minimum).
+            self.fields['partial_withdrawal_volume'].initial = Decimal('1.00')
 
     def clean(self):
         cleaned_data = super().clean()
         product_feature = cleaned_data.get('product_feature') or 'volume'
 
         if product_feature == 'volume':
+            # Unit-only fields are hidden/irrelevant for volume lots.
+            self._errors.pop('current_stock', None)
+            self._errors.pop('units_per_quantity', None)
             full_volume = cleaned_data.get('full_volume')
             partial_withdrawal_volume = cleaned_data.get('partial_withdrawal_volume')
             if full_volume is None:
                 self.add_error('full_volume', "Enter the full volume for this lot.")
             if partial_withdrawal_volume is None:
                 self.add_error('partial_withdrawal_volume', "Enter the unit partial withdrawal volume.")
+            if partial_withdrawal_volume is not None and partial_withdrawal_volume <= 0:
+                self.add_error(
+                    'partial_withdrawal_volume',
+                    "The partial withdrawal volume must be greater than 0.",
+                )
+            if (
+                full_volume is not None
+                and partial_withdrawal_volume is not None
+                and partial_withdrawal_volume > full_volume
+            ):
+                self.add_error(
+                    'partial_withdrawal_volume',
+                    "The partial withdrawal volume cannot exceed the full volume.",
+                )
             if self.errors:
                 return cleaned_data
 
@@ -170,6 +191,14 @@ class ProductItemForm(forms.ModelForm):
             cleaned_data['units_per_quantity'] = partial_withdrawal_volume
             cleaned_data['accumulated_partial'] = self.instance.accumulated_partial if self.instance.pk else 0
         else:
+            # Volume-only fields are hidden and irrelevant for unit lots. Drop
+            # any field-level errors they raised (e.g. their rendered default of
+            # 0.00 failing min_value) so they can't silently block a unit save.
+            self._errors.pop('full_volume', None)
+            self._errors.pop('partial_withdrawal_volume', None)
+            cleaned_data.pop('full_volume', None)
+            cleaned_data.pop('partial_withdrawal_volume', None)
+
             current_stock = cleaned_data.get('current_stock')
             units_per_quantity = cleaned_data.get('units_per_quantity')
             if current_stock is None:

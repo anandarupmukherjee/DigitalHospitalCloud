@@ -8,4 +8,5 @@ urlpatterns = [
     path("checks/", views.list_checks, name="list_checks"),
     path("lots/", views.lot_status, name="lot_status"),
     path("checks/create/", views.create_check, name="create_check"),
+    path("checks/<int:check_id>/edit/", views.edit_check, name="edit_check"),
 ]

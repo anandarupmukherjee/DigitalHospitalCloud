@@ -116,6 +116,25 @@ class ProductItem(models.Model):
     def get_remaining_parts(self):
         return 0 if self.is_expired else self.accumulated_partial
 
+    @property
+    def partial_withdrawals_remaining(self):
+        """How many single-scan partial withdrawals remain for this lot.
+
+        Volume: number of whole 'doses' of units_per_quantity mL left in stock.
+        Unit multi-pack: number of individual parts left.
+        Returns None when the lot has no partial step (units_per_quantity <= 1
+        for unit products) or is expired.
+        """
+        step = self.units_per_quantity or 0
+        if self.is_expired or step <= 0:
+            return None
+        stock = self.current_stock or 0
+        if self.product_feature == "volume":
+            return int(stock / step)
+        if step > 1:
+            return int(stock * step - (self.accumulated_partial or 0))
+        return None
+
 
 class ProductIdentifier(models.Model):
     TYPE_INTERNAL_CODE = "INTERNAL_CODE"

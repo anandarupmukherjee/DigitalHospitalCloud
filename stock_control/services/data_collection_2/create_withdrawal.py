@@ -1,5 +1,5 @@
 import datetime
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 
 from django.contrib import messages
 from django.db.models import F
@@ -142,33 +142,43 @@ def create_withdrawal(request):
                 partial_only_item = item.product_feature == 'volume' or item.units_per_quantity > 1
 
                 if item.product_feature == 'volume':
-                    withdrawal_mode = "part" if (barcode_mode or partial_only_item) else request.POST.get("withdrawal_mode", "full")
-                    if withdrawal_mode == "part":
-                        parts_withdrawn = 1 if barcode_mode else int(request.POST.get("parts_withdrawn") or 0)
-                        if parts_withdrawn <= 0:
-                            form.add_error(None, "Enter at least 1 part to withdraw.")
-                            return render_form(form)
-                        volume_qty = Decimal(parts_withdrawn) * Decimal(item.units_per_quantity)
-                        withdrawal.parts_withdrawn = parts_withdrawn
-                        withdrawal.withdrawal_type = 'part'
-                    else:
-                        volume_qty = Decimal(item.units_per_quantity) if barcode_mode else Decimal(form.cleaned_data.get('quantity', 0))
+                    # Volume reagents are withdrawn by an actual amount (mL),
+                    # fractions allowed. A barcode scan removes one dose
+                    # (units_per_quantity); manual entry uses the typed amount.
+                    if barcode_mode:
+                        volume_qty = Decimal(item.units_per_quantity or 0)
                         if volume_qty <= 0:
-                            form.add_error(None, "Enter an amount greater than 0 to withdraw.")
-                            return render_form(form)
-                        withdrawal.parts_withdrawn = 0
-                        withdrawal.withdrawal_type = 'volume'
+                            volume_qty = Decimal("1")
+                    else:
+                        raw_volume = request.POST.get("volume_quantity")
+                        if raw_volume in (None, ""):
+                            raw_volume = form.cleaned_data.get("quantity")
+                        try:
+                            volume_qty = Decimal(str(raw_volume or "0"))
+                        except (InvalidOperation, TypeError):
+                            volume_qty = Decimal("0")
+                    if volume_qty <= 0:
+                        form.add_error(None, "Enter a volume greater than 0 (mL) to withdraw.")
+                        return render_form(form)
                     if volume_qty > item.current_stock:
-                        form.add_error(None, "Insufficient stock for volume withdrawal.")
+                        form.add_error(None, "Insufficient stock for this volume withdrawal.")
                         return render_form(form)
                     withdrawal.quantity = volume_qty
+                    withdrawal.parts_withdrawn = 0
+                    withdrawal.withdrawal_type = 'volume'
                     item.current_stock = F('current_stock') - volume_qty
 
                 else:
                     withdrawal_mode = "part" if (barcode_mode and item.units_per_quantity > 1) or (not barcode_mode and partial_only_item) else "full"
 
                     if withdrawal_mode == "part":
-                        parts_withdrawn = 1 if barcode_mode else int(request.POST.get("parts_withdrawn") or 0)
+                        if barcode_mode:
+                            parts_withdrawn = 1
+                        else:
+                            try:
+                                parts_withdrawn = int(Decimal(str(request.POST.get("parts_withdrawn") or "0")))
+                            except (InvalidOperation, TypeError, ValueError):
+                                parts_withdrawn = 0
                         if parts_withdrawn <= 0:
                             form.add_error(None, "Enter at least 1 part to withdraw.")
                             return render_form(form)
@@ -191,7 +201,13 @@ def create_withdrawal(request):
                         withdrawal.withdrawal_type = 'part'
 
                     else:
-                        full_items = Decimal("1") if barcode_mode else Decimal(form.cleaned_data.get("quantity", 0))
+                        if barcode_mode:
+                            full_items = Decimal("1")
+                        else:
+                            try:
+                                full_items = Decimal(str(form.cleaned_data.get("quantity") or "0"))
+                            except (InvalidOperation, TypeError):
+                                full_items = Decimal("0")
                         if full_items <= 0:
                             form.add_error(None, "Enter at least 1 item to withdraw.")
                             return render_form(form)

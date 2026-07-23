@@ -11,7 +11,7 @@
 
 
   <script src="{% static 'inventory/barcode_fetch.js' %}?v=20260320"></script>
-  <script src="{% static 'inventory/manual_product_fetch.js' %}?v=20260516c"></script>
+  <script src="{% static 'inventory/manual_product_fetch.js' %}?v=20260723a"></script>
   <script src="{% static 'inventory/mode_toggle.js' %}"></script>  
   <script src="{% static 'inventory/part_calculation.js' %}"></script> 
 </head>
@@ -84,6 +84,7 @@
         <input type="hidden" id="id_product_feature" value="">
         <input type="hidden" id="id_accumulated_partial" value="0">
         <input type="hidden" id="id_current_stock" value="0">
+        <input type="hidden" id="id_current_stock" value="0">
         <input type="hidden" id="barcode_quantity_hidden" name="quantity" value="1">
         <input type="hidden" id="barcode_withdrawal_type_hidden" name="withdrawal_type" value="unit">
         <input type="hidden" id="barcode_parts_hidden" name="parts_withdrawn" value="0">
@@ -105,19 +106,7 @@
           <input type="text" id="parsed_product_code" readonly>
 
           <label>Lot Number:</label>
-          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <input type="text" id="parsed_lot_number" readonly>
-            <a
-              id="barcode-qc-link"
-              href="#"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="btn btn-secondary"
-              style="display: none;"
-            >
-              New QC Check
-            </a>
-          </div>
+          <input type="text" id="parsed_lot_number" readonly>
 
           <label>Expiry Date:</label>
           <input type="text" id="parsed_expiry_date" readonly>
@@ -152,21 +141,9 @@
           </select>
 
           <label for="id_manual_lot_item">Select Lot:</label>
-          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <select id="id_manual_lot_item" name="manual_lot_item_id">
-              <option value="">-- Select Lot --</option>
-            </select>
-            <a
-              id="manual-qc-link"
-              href="#"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="btn btn-secondary"
-              style="display: none;"
-            >
-              New QC Check
-            </a>
-          </div>
+          <select id="id_manual_lot_item" name="manual_lot_item_id">
+            <option value="">-- Select Lot --</option>
+          </select>
           
           <!-- NEW: Fetch Details Button
           <button type="button" id="fetch-manual-details" class="btn btn-secondary">Fetch Details</button> -->
@@ -200,12 +177,18 @@
           <div id="part_item_section" style="display: none;">
             <label for="id_parts_withdrawn">Parts Withdrawn:</label>
             {{ form.parts_withdrawn }}
-            
+
             <label for="id_full_items">Computed Withdrawal:</label>
             <input type="text" id="id_full_items" name="full_items" value="0" readonly>
 
             <label for="id_parts_remaining">Parts Remaining After Withdrawal:</label>
             <input type="text" id="id_parts_remaining" name="parts_remaining" value="0" readonly>
+          </div>
+
+          <div id="volume_item_section" style="display: none;">
+            <label for="id_volume_quantity">Volume to withdraw (mL):</label>
+            <input type="number" step="0.01" min="0" id="id_volume_quantity" name="volume_quantity" value="" placeholder="e.g. 2.5">
+            <p class="info-text">Enter the amount of reagent used, in mL (decimals allowed).</p>
           </div>
         </div>
         

@@ -105,3 +105,21 @@ class QualityCheckForm(forms.ModelForm):
         raise forms.ValidationError(
             "Multiple lots match that selection. Add the lot number or use the product lot dropdown."
         )
+
+
+class QualityCheckEditForm(forms.ModelForm):
+    """Correct an existing check's result/notes. The lot is not changeable here;
+    status + sign-off are derived from the result in the view."""
+
+    class Meta:
+        model = QualityCheck
+        fields = ["result", "test_reference", "notes"]
+        widgets = {
+            "notes": forms.Textarea(attrs={"rows": 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["result"].required = False
+        self.fields["result"].label = "Result"
+        self.fields["result"].choices = [("", "Pending")] + list(QualityCheck.RESULT_CHOICES)

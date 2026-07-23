@@ -139,7 +139,7 @@
           <button type="submit">Fetch Product</button>
         </form>
 
-        <form method="POST">
+        <form method="POST" novalidate>
           {% csrf_token %}
           <fieldset>
             <legend>Product Details</legend>
@@ -167,7 +167,7 @@
               {% if product_item_form.product_feature.errors %}<div class="errorlist">{{ product_item_form.product_feature.errors }}</div>{% endif %}
             </div>
 
-            <div id="volume-fields-panel" class="stock-admin-mode-panel">
+            <div id="volume-fields-panel" class="stock-admin-mode-panel {% if product_item_form.product_feature.value|default:'volume' != 'volume' %}hidden-panel{% endif %}">
               <h4>Reagent Volume</h4>
 
               <div class="stock-admin-field-group">
@@ -185,7 +185,7 @@
               </div>
             </div>
 
-            <div id="unit-fields-panel" class="stock-admin-mode-panel hidden-panel">
+            <div id="unit-fields-panel" class="stock-admin-mode-panel {% if product_item_form.product_feature.value|default:'volume' == 'volume' %}hidden-panel{% endif %}">
               <h4>Unit Lot Details</h4>
 
               <div class="stock-admin-field-group">
@@ -261,8 +261,14 @@
                   <td>
                     {% if item.product_feature == 'volume' %}
                       {{ item.current_stock }} mL remaining
+                      {% if item.partial_withdrawals_remaining is not None %}
+                        <br><span class="stock-admin-help">≈ {{ item.partial_withdrawals_remaining }} withdrawal{{ item.partial_withdrawals_remaining|pluralize }} of {{ item.units_per_quantity }} mL</span>
+                      {% endif %}
                     {% else %}
                       {{ item.current_stock }} item{{ item.current_stock|pluralize }}
+                      {% if item.partial_withdrawals_remaining is not None %}
+                        <br><span class="stock-admin-help">≈ {{ item.partial_withdrawals_remaining }} part{{ item.partial_withdrawals_remaining|pluralize }} left</span>
+                      {% endif %}
                     {% endif %}
                   </td>
                   {% if location_tracking_enabled %}
@@ -291,7 +297,7 @@
                   </td>
                   <td>
                     {% if item.product_feature == 'volume' %}
-                      {{ item.accumulated_partial }} recorded
+                      —
                     {% else %}
                       {{ item.accumulated_partial }} unit{{ item.accumulated_partial|pluralize }}
                     {% endif %}

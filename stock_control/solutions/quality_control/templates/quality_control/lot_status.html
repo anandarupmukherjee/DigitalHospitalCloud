@@ -81,13 +81,13 @@
         </form>
 
         <form method="get" class="inline-form">
-          <label for="barcode">Scan / Enter Product Barcode</label><br>
+          <label for="barcode">Scan barcode / enter lot number or product name</label><br>
           <input
             type="text"
             id="barcode"
             name="barcode"
             value="{{ barcode_value }}"
-            placeholder="Scan or type barcode"
+            placeholder="Barcode, lot number, or product name"
             autocomplete="off"
           >
           <input type="hidden" name="location_id" value="{{ selected_location_id }}">
@@ -106,6 +106,8 @@
                 <th>Total Stock</th>
                 <th>Current Stock</th>
                 <th>Latest QC</th>
+                <th>QC By</th>
+                <th>QC Date</th>
                 <th>Status</th>
                 <th>Notes</th>
               </tr>
@@ -124,6 +126,20 @@
                       —
                     {% endif %}
                   </td>
+                  <td>
+                    {% if row.latest_check %}
+                      {{ row.latest_check.performed_by|default:"—" }}
+                    {% else %}
+                      —
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if row.latest_check %}
+                      {{ row.latest_check.created_at|date:"Y-m-d H:i" }}
+                    {% else %}
+                      —
+                    {% endif %}
+                  </td>
                   <td class="{{ row.status_class }}">{{ row.status_label }}</td>
                   <td>
                     {% if row.latest_check %}
@@ -135,7 +151,7 @@
                 </tr>
               {% empty %}
                 <tr>
-                  <td colspan="7">No lots found for this product.</td>
+                  <td colspan="9">No lots found for this product.</td>
                 </tr>
               {% endfor %}
             </tbody>

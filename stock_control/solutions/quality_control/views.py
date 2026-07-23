@@ -1,10 +1,12 @@
 from decimal import Decimal
 
 from django.contrib import messages
+from django.contrib.messages import constants as message_constants
+from django.contrib.messages.storage.base import Message
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db.models import Prefetch, Sum, Q
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from inventory.access_control import group_required
@@ -27,7 +29,7 @@ from services.data_collection.barcode_resolution import resolve_product_from_bar
 from services.data_storage.models import Product, ProductItem
 from stock_control.module_loader import module_flags as get_module_flags
 
-from .forms import QualityCheckForm
+from .forms import QualityCheckForm, QualityCheckEditForm
 from .models import QualityCheck
 
 User = get_user_model()
@@ -110,6 +112,46 @@ def list_checks(request):
     )
 
 
+def _resolve_product_by_lot_or_name(query):
+    """Resolve a single product from a lot number, product code, or name.
+
+    Lets the QC lot-status lookup box accept more than a barcode. Read-only.
+    Returns ``(product, candidates)``:
+      * product    - the single resolved product, or None.
+      * candidates - list of products when a partial name is *ambiguous*
+                     (>1 match), so the caller can prompt the user to refine.
+                     Empty otherwise.
+    A partial name resolves only when it matches exactly one product.
+    """
+    q = (query or "").strip()
+    if not q:
+        return None, []
+    # 1) Exact lot number -> the product that lot belongs to
+    item = (
+        ProductItem.objects.filter(lot_number__iexact=q)
+        .select_related("product")
+        .order_by("-id")
+        .first()
+    )
+    if item and item.product:
+        return item.product, []
+    # 2) Exact product code
+    product = Product.objects.filter(product_code__iexact=q).first()
+    if product:
+        return product, []
+    # 3) Exact product name
+    product = Product.objects.filter(name__iexact=q).first()
+    if product:
+        return product, []
+    # 4) Partial name -> only resolve when unambiguous (exactly one match)
+    matches = list(Product.objects.filter(name__icontains=q).order_by("name")[:11])
+    if len(matches) == 1:
+        return matches[0], []
+    if len(matches) > 1:
+        return None, matches
+    return None, []
+
+
 @login_required
 @group_required([ROLE_INVENTORY_MANAGER, ROLE_TEAM_MANAGER])
 def lot_status(request):
@@ -170,7 +212,24 @@ def lot_status(request):
         parsed = parse_barcode_data(barcode_value) or {}
         selected_product = resolve_product_from_barcode(parsed, barcode_value)["product"]
         if not selected_product:
-            messages.error(request, "No product matches the scanned barcode.")
+            # Fall back to matching by lot number, product code, or name.
+            selected_product, name_candidates = _resolve_product_by_lot_or_name(barcode_value)
+        if not selected_product:
+            # Append to qc_messages so feedback shows on THIS request (the view
+            # already consumed the message store above).
+            if name_candidates:
+                sample = ", ".join(p.name for p in name_candidates[:5])
+                suffix = ", …" if len(name_candidates) > 5 else ""
+                qc_messages.append(Message(
+                    message_constants.ERROR,
+                    f"Multiple products match “{barcode_value}”. Please refine your "
+                    f"search or choose from the product list. Matches: {sample}{suffix}",
+                ))
+            else:
+                qc_messages.append(Message(
+                    message_constants.ERROR,
+                    "No product matches that barcode, lot number, or product name.",
+                ))
 
     if not selected_product and product_id:
         selected_product = Product.objects.filter(pk=product_id).first()
@@ -385,4 +444,55 @@ def create_check(request):
             "selected_location_id": selected_location_id,
             "preselected_product_item_id": initial_product_item_id,
         },
+    )
+
+
+@login_required
+@user_passes_test(is_inventory_admin, login_url="inventory:dashboard")
+def edit_check(request, check_id):
+    """Correct an existing QC check's result in place (e.g. entered in error).
+
+    Status + sign-off are derived from the result; when the result changes an
+    audit line is appended to the notes. Nothing is deleted.
+    """
+    check = get_object_or_404(
+        QualityCheck.objects.select_related("product_item__product"), pk=check_id
+    )
+    old_result = check.result or ""
+
+    if request.method == "POST":
+        form = QualityCheckEditForm(request.POST, instance=check)
+        if form.is_valid():
+            qc = form.save(commit=False)
+            new_result = qc.result or ""
+            if new_result:
+                qc.status = QualityCheck.STATUS_COMPLETED
+                qc.signed_off_by = request.user
+                qc.signed_off_at = timezone.now()
+            else:
+                qc.status = QualityCheck.STATUS_PENDING
+                qc.signed_off_by = None
+                qc.signed_off_at = None
+
+            if new_result != old_result:
+                labels = dict(QualityCheck.RESULT_CHOICES)
+                old_label = labels.get(old_result, "Pending") if old_result else "Pending"
+                new_label = labels.get(new_result, "Pending") if new_result else "Pending"
+                stamp = timezone.now().strftime("%Y-%m-%d %H:%M")
+                audit = (
+                    f"[Result changed {old_label} → {new_label} "
+                    f"by {request.user.get_username()} on {stamp}]"
+                )
+                qc.notes = f"{qc.notes}\n{audit}".strip() if qc.notes else audit
+
+            qc.save()
+            messages.success(request, "Quality check updated.")
+            return redirect("quality_control:list_checks")
+    else:
+        form = QualityCheckEditForm(instance=check)
+
+    return render(
+        request,
+        "quality_control/edit_check.html",
+        {"form": form, "check": check},
     )

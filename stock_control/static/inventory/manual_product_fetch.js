@@ -33,6 +33,8 @@ document.addEventListener("DOMContentLoaded", function () {
     const partsInput = document.getElementById("id_parts_withdrawn");
     const fullItemSection = document.getElementById("full_item_section");
     const partItemSection = document.getElementById("part_item_section");
+    const volumeItemSection = document.getElementById("volume_item_section");
+    const volumeQuantityInput = document.getElementById("id_volume_quantity");
     let availableLots = [];
 
     function setFieldState(field, disabled) {
@@ -72,8 +74,10 @@ document.addEventListener("DOMContentLoaded", function () {
             if (manualTypeInput) manualTypeInput.value = "unit";
             if (fullItemSection) fullItemSection.style.display = "block";
             if (partItemSection) partItemSection.style.display = "none";
+            if (volumeItemSection) volumeItemSection.style.display = "none";
             setFieldState(quantityInput, false);
             setFieldState(partsInput, true);
+            setFieldState(volumeQuantityInput, true);
             syncManualQcLink(null);
             document.dispatchEvent(new CustomEvent("manualLotChanged"));
             return;
@@ -83,35 +87,43 @@ document.addEventListener("DOMContentLoaded", function () {
         const unitsPerQuantity = selectedLot.units_per_quantity ?? "1";
         const accumulatedPartial = selectedLot.accumulated_partial ?? 0;
         const currentStock = selectedLot.current_stock ?? "0";
-        const supportsPartial = productFeature === "volume" || Number(unitsPerQuantity) > 1;
 
         if (productFeatureInput) productFeatureInput.value = productFeature;
         if (unitsPerQuantityInput) unitsPerQuantityInput.value = unitsPerQuantity;
         if (accumulatedPartialInput) accumulatedPartialInput.value = accumulatedPartial;
         if (currentStockInput) currentStockInput.value = currentStock;
 
-        if (supportsPartial) {
+        function showSection(full, part, volume) {
+            if (fullItemSection) fullItemSection.style.display = full ? "block" : "none";
+            if (partItemSection) partItemSection.style.display = part ? "block" : "none";
+            if (volumeItemSection) volumeItemSection.style.display = volume ? "block" : "none";
+            setFieldState(quantityInput, !full);
+            setFieldState(partsInput, !part);
+            setFieldState(volumeQuantityInput, !volume);
+        }
+
+        if (productFeature === "volume") {
+            // Volume reagents: withdraw an actual amount in mL (decimals allowed).
+            if (manualModeInput) manualModeInput.value = "volume";
+            if (manualTypeInput) manualTypeInput.value = "volume";
+            showSection(false, false, true);
+            if (manualBehavior) {
+                manualBehavior.textContent = "This is a volume reagent. Enter the amount used, in mL (decimals allowed).";
+            }
+        } else if (Number(unitsPerQuantity) > 1) {
             if (manualModeInput) manualModeInput.value = "part";
-            if (manualTypeInput) manualTypeInput.value = productFeature === "volume" ? "part" : "part";
-            if (fullItemSection) fullItemSection.style.display = "none";
-            if (partItemSection) partItemSection.style.display = "block";
-            setFieldState(quantityInput, true);
-            setFieldState(partsInput, false);
+            if (manualTypeInput) manualTypeInput.value = "part";
+            showSection(false, true, false);
             if (partsInput && (!partsInput.value || partsInput.value === "0")) {
                 partsInput.value = "1";
             }
             if (manualBehavior) {
-                manualBehavior.textContent = productFeature === "volume"
-                    ? "This lot uses fixed partial withdrawals. Enter the number of partial steps to withdraw."
-                    : "This lot uses parts-based withdrawal. Enter the number of parts to withdraw.";
+                manualBehavior.textContent = "This lot uses parts-based withdrawal. Enter the number of parts to withdraw.";
             }
         } else {
             if (manualModeInput) manualModeInput.value = "full";
             if (manualTypeInput) manualTypeInput.value = "unit";
-            if (fullItemSection) fullItemSection.style.display = "block";
-            if (partItemSection) partItemSection.style.display = "none";
-            setFieldState(quantityInput, false);
-            setFieldState(partsInput, true);
+            showSection(true, false, false);
             if (quantityInput && (!quantityInput.value || quantityInput.value === "0")) {
                 quantityInput.value = "1";
             }

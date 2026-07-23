@@ -1,5 +1,6 @@
 from datetime import timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+from types import SimpleNamespace
 
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render
@@ -39,11 +40,61 @@ EXPIRED_RANGE_OPTIONS = {
     "month": {"label": "Next 1 Month", "days": 30},
 }
 
+def _fmt_qty(value):
+    """Format a withdrawal quantity, trimming trailing zeros (1.50 -> '1.5')."""
+    try:
+        return format(Decimal(value or 0).normalize(), "f")
+    except (InvalidOperation, TypeError, ValueError):
+        return str(value or 0)
+
+
 QC_RESULT_OPTIONS = {
     "all": "All",
     "pass": "Passed",
     "fail": "Failed",
+    "pending": "Pending",
 }
+
+
+def _pending_qc_lot_rows(product_query, lot_query, team_manager_scope, allowed_location_ids):
+    """Reagent lots that are awaiting QC.
+
+    "Pending" is lot-centric (unlike Passed/Failed, which are QC-record centric):
+    a lot with no QualityCheck at all is still pending QC. We show in-stock,
+    non-expired lots that have no completed (pass/fail) check, mirroring the
+    "Waiting for QC"/"Pending" states used on the Quality Control lot-status page.
+    Rendered as read-only rows shaped like the QC records the table expects.
+    """
+    if ProductItem is None:
+        return []
+
+    today = now().date()
+    items = (
+        ProductItem.objects.filter(current_stock__gt=0, expiry_date__gte=today)
+        .exclude(quality_checks__result__in=["pass", "fail"])
+        .select_related("product")
+        .distinct()
+        .order_by("product__name", "lot_number")
+    )
+    if product_query:
+        items = items.filter(product__name__icontains=product_query)
+    if lot_query:
+        items = items.filter(lot_number__icontains=lot_query)
+    if team_manager_scope:
+        if allowed_location_ids:
+            items = items.filter(product__location_id__in=allowed_location_ids)
+        else:
+            items = items.none()
+
+    return [
+        SimpleNamespace(
+            product_item=item,
+            performed_by=None,
+            get_result_display="",
+            created_at=None,
+        )
+        for item in items
+    ]
 
 
 def is_inventory_admin(user):
@@ -112,8 +163,14 @@ def track_withdrawals(request):
         except Exception:
             user_locations_map = {}
     for withdrawal in withdrawals:
-        withdrawal.full_items = withdrawal.get_full_items_withdrawn()
-        withdrawal.partial_items = withdrawal.get_partial_items_withdrawn()
+        if withdrawal.withdrawal_type == "volume":
+            # Volume reagents are an amount in mL (fractions allowed) — do not
+            # truncate to an integer or label them as "full items".
+            withdrawal.full_items = f"{_fmt_qty(withdrawal.quantity)} mL"
+            withdrawal.partial_items = "—"
+        else:
+            withdrawal.full_items = withdrawal.get_full_items_withdrawn()
+            withdrawal.partial_items = withdrawal.get_partial_items_withdrawn()
         if location_tracking_enabled:
             location_name = None
             if withdrawal.location:
@@ -276,24 +333,30 @@ def track_qc(request):
     )
 
     if QualityCheck is not None:
-        if result_filter == "pass":
-            checks = checks.filter(result="pass")
-        elif result_filter == "fail":
-            checks = checks.filter(result="fail")
+        if result_filter == "pending":
+            # Lot-centric: reagent lots awaiting QC (incl. lots with no check).
+            checks = _pending_qc_lot_rows(
+                product_query, lot_query, team_manager_scope, allowed_location_ids
+            )
+        else:
+            if result_filter == "pass":
+                checks = checks.filter(result="pass")
+            elif result_filter == "fail":
+                checks = checks.filter(result="fail")
 
-        if product_query:
-            checks = checks.filter(product_item__product__name__icontains=product_query)
-        if lot_query:
-            checks = checks.filter(product_item__lot_number__icontains=lot_query)
+            if product_query:
+                checks = checks.filter(product_item__product__name__icontains=product_query)
+            if lot_query:
+                checks = checks.filter(product_item__lot_number__icontains=lot_query)
 
-        if team_manager_scope:
-            if allowed_location_ids:
-                checks = checks.filter(
-                    Q(location_id__in=allowed_location_ids)
-                    | Q(location_id__isnull=True, product_item__product__location_id__in=allowed_location_ids)
-                )
-            else:
-                checks = checks.none()
+            if team_manager_scope:
+                if allowed_location_ids:
+                    checks = checks.filter(
+                        Q(location_id__in=allowed_location_ids)
+                        | Q(location_id__isnull=True, product_item__product__location_id__in=allowed_location_ids)
+                    )
+                else:
+                    checks = checks.none()
 
     return render(
         request,
@@ -307,6 +370,7 @@ def track_qc(request):
             "team_manager_scope": team_manager_scope,
             "location_tracking_enabled": location_tracking_enabled,
             "user_locations": location_names,
+            "quality_control_enabled": get_module_flags().get("quality_control", False),
         },
     )
 
