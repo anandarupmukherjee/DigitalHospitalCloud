@@ -5,67 +5,74 @@
 
 {% block content %}
 <section class="dashboard-grid">
-    <div class="panel filter-panel">
-        <h2>Filter activity</h2>
-        <form method="get" class="range-filter-form">
-            <label>
-                Range
-                <select name="range">
-                    {% for key, choice in dashboard_range_choices.items %}
-                        <option value="{{ key }}" {% if key == dashboard_range_key %}selected{% endif %}>
-                            {{ choice.0 }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </label>
-            <label>
-                Location
-                <select name="location">
-                    <option value="" {% if not selected_location %}selected{% endif %}>All locations</option>
-                    {% for location in dashboard_location_choices %}
-                        <option value="{{ location }}" {% if location == selected_location %}selected{% endif %}>
-                            {{ location }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </label>
-            <label class="form-checkbox">
-                <input type="checkbox"
-                       name="ignore_weekends"
-                       value="1"
-                       {% if ignore_weekends %}checked{% endif %}>
-                <span>Ignore weekends</span>
-            </label>
-            <button type="submit">Apply</button>
-        </form>
-        <form id="trayFilters" class="filter-options">
-            <label>
-                <input type="radio" name="activity_filter" value="active_now" checked>
-                <span>Active now</span>
-            </label>
-            <label>
-                <input type="radio" name="activity_filter" value="active_6h">
-                <span>Active in last 6 hrs</span>
-            </label>
-            <label>
-                <input type="radio" name="activity_filter" value="active_12h">
-                <span>Active in last 12 hrs</span>
-            </label>
-            <label>
-                <input type="radio" name="activity_filter" value="active_24_plus">
-                <span>Active for more than 24 hrs</span>
-            </label>
-        </form>
-        <div class="heartbeat-panel">
-            <h2>Tray alive status</h2>
+    <aside class="dashboard-sidebar">
+        <div class="panel side-card">
+            <h2 class="side-title">Filters</h2>
+            <form method="get" class="range-filter-form">
+                <label>
+                    Range
+                    <select name="range">
+                        {% for key, choice in dashboard_range_choices.items %}
+                            <option value="{{ key }}" {% if key == dashboard_range_key %}selected{% endif %}>
+                                {{ choice.0 }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>
+                    Location
+                    <select name="location">
+                        <option value="" {% if not selected_location %}selected{% endif %}>All locations</option>
+                        {% for location in dashboard_location_choices %}
+                            <option value="{{ location }}" {% if location == selected_location %}selected{% endif %}>
+                                {{ location }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="form-checkbox">
+                    <input type="checkbox"
+                           name="ignore_weekends"
+                           value="1"
+                           {% if ignore_weekends %}checked{% endif %}>
+                    <span>Ignore weekends</span>
+                </label>
+                <button type="submit">Apply</button>
+            </form>
+        </div>
+
+        <div class="panel side-card">
+            <h2 class="side-title">Show trays</h2>
+            <form id="trayFilters" class="filter-options">
+                <label>
+                    <input type="radio" name="activity_filter" value="active_now" checked>
+                    <span>Active now</span>
+                </label>
+                <label>
+                    <input type="radio" name="activity_filter" value="active_6h">
+                    <span>Active in last 6 hrs</span>
+                </label>
+                <label>
+                    <input type="radio" name="activity_filter" value="active_12h">
+                    <span>Active in last 12 hrs</span>
+                </label>
+                <label>
+                    <input type="radio" name="activity_filter" value="active_24_plus">
+                    <span>Active for more than 24 hrs</span>
+                </label>
+            </form>
+        </div>
+
+        <div class="panel side-card">
+            <h2 class="side-title">Live tray status</h2>
             <ul class="heartbeat-list" id="heartbeatList" data-empty="No heartbeat data yet.">
                 <li>Loading heartbeat data…</li>
             </ul>
         </div>
-        <div class="map-visual-panel">
-            <h2>Map options</h2>
-            <label>
-                Map style
+
+        <div class="panel side-card">
+            <h2 class="side-title">Map style</h2>
+            <label class="map-style-field">
                 <select id="mapThemeSelect">
                     <option value="standard" selected>Standard</option>
                     <option value="light">Light</option>
@@ -75,7 +82,7 @@
             </label>
             <small class="map-option-hint">Choose a base layer that best suits your environment.</small>
         </div>
-    </div>
+    </aside>
     <div class="map-panel">
         <div class="map-container" id="trayMap"></div>
         <div class="tray-status-overlay">
@@ -87,6 +94,10 @@
     </div>
 </section>
 
+<div class="section-heading">
+    <h2>Operational analytics</h2>
+    <p class="chart-subtitle">{{ dashboard_range_label }}</p>
+</div>
 <section class="chart-grid">
     <article class="panel dashboard-chart chart-card">
         <div class="chart-header">
@@ -251,7 +262,7 @@
         {% endif %}
     </article>
 
-    <article class="panel dashboard-chart chart-card">
+    <article class="panel dashboard-chart chart-card longest-events-card">
         <div class="chart-header">
             <div>
                 <h2>Longest events</h2>

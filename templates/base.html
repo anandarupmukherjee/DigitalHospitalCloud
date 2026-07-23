@@ -47,6 +47,10 @@
                class="{% if request.resolver_match.url_name == 'user-management' %}active{% endif %}">
                 User management
             </a>
+            <a href="{% url 'system-admin' %}"
+               class="{% if request.resolver_match.url_name == 'system-admin' %}active{% endif %}">
+                System admin
+            </a>
         {% endif %}
     </nav>
 {% endif %}

@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}System admin · Logistics Tracker{% endblock %}
+
+{% block content %}
+<section class="panel">
+    <div class="sysadmin-header">
+        <div>
+            <h1>System administration</h1>
+            <p class="chart-subtitle">
+                Platform health, database, and tray uptime ·
+                auto-refreshes every <span id="m-refresh">{{ refresh_seconds }}</span>s ·
+                server time <span id="m-server-time">{{ metrics.server_time }}</span>
+            </p>
+        </div>
+        <div class="pipeline-pill status-{{ metrics.pipeline.status }}" id="m-pipeline-pill">
+            <span class="pipeline-dot"></span>
+            <div>
+                <p class="pipeline-state" id="m-pipeline-status">{{ metrics.pipeline.status|upper }}</p>
+                <p class="pipeline-meta">
+                    last heartbeat
+                    <strong id="m-seconds-since">{{ metrics.pipeline.seconds_since_last|default:"—" }}</strong>s ago
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI tiles ---------------------------------------------------------->
+    <div class="kpi-grid">
+        <div class="kpi-tile">
+            <h3>Ingestion rate</h3>
+            <p class="kpi-value"><span id="m-rate">{{ metrics.pipeline.rate_per_min_recent }}</span> <span class="kpi-unit">/min</span></p>
+            <p class="kpi-sub"><span id="m-events-24h">{{ metrics.pipeline.events_last_24h }}</span> events / 24h</p>
+        </div>
+        <div class="kpi-tile">
+            <h3>Fleet online</h3>
+            <p class="kpi-value"><span id="m-online">{{ metrics.fleet.online }}</span> / <span id="m-total">{{ metrics.fleet.total }}</span></p>
+            <p class="kpi-sub"><span id="m-active">{{ metrics.fleet.active_now }}</span> active now</p>
+        </div>
+        <div class="kpi-tile">
+            <h3>Application uptime</h3>
+            <p class="kpi-value" id="m-app-uptime" data-seconds="{{ metrics.process.app_uptime_seconds }}">—</p>
+            <p class="kpi-sub">container <span id="m-container-uptime" data-seconds="{{ metrics.process.container_uptime_seconds }}">—</span></p>
+        </div>
+        <div class="kpi-tile">
+            <h3>Database size</h3>
+            <p class="kpi-value"><span id="m-db-size">{{ metrics.database.size_mb }}</span> <span class="kpi-unit">MB</span></p>
+            <p class="kpi-sub">soft cap {{ metrics.database.soft_cap_gb }} GB</p>
+        </div>
+        <div class="kpi-tile">
+            <h3>Heartbeat logs</h3>
+            <p class="kpi-value" id="m-hb-count">{{ metrics.database.counts.tray_heartbeat_event }}</p>
+            <p class="kpi-sub"><span id="m-outside">{{ metrics.retention.events_outside_window }}</span> past {{ metrics.retention.weeks }}-wk window</p>
+        </div>
+        <div class="kpi-tile">
+            <h3>Alerts (24h)</h3>
+            <p class="kpi-value" id="m-alerts">{{ metrics.alerts.sent_last_24h }}</p>
+            <p class="kpi-sub">last <span id="m-last-alert">{{ metrics.alerts.last_alert_at|default:"never" }}</span></p>
+        </div>
+    </div>
+
+    <!-- Gauges ------------------------------------------------------------->
+    <div class="gauge-grid">
+        <article class="panel gauge-card">
+            <h2>Fleet availability</h2>
+            <div class="gauge-wrap"><canvas id="gaugeAvailability"></canvas></div>
+        </article>
+        <article class="panel gauge-card">
+            <h2>Database usage</h2>
+            <div class="gauge-wrap"><canvas id="gaugeDatabase"></canvas></div>
+            <p class="chart-subtitle">of {{ metrics.database.soft_cap_gb }} GB soft cap</p>
+        </article>
+        <article class="panel gauge-card">
+            <h2>Retention window used</h2>
+            <div class="gauge-wrap"><canvas id="gaugeRetention"></canvas></div>
+            <p class="chart-subtitle">oldest log <span id="m-oldest-age">{{ metrics.retention.oldest_age_days }}</span> / {{ metrics.retention.window_days }} days</p>
+        </article>
+    </div>
+
+    <!-- Graphs ------------------------------------------------------------->
+    <div class="sysadmin-chart-grid">
+        <article class="panel chart-card">
+            <div class="chart-header">
+                <div>
+                    <h2>Ingestion throughput</h2>
+                    <p class="chart-subtitle">Heartbeat events per 15 min · last 6 hours</p>
+                </div>
+            </div>
+            <canvas id="ingestionChart" class="sysadmin-chart"></canvas>
+        </article>
+        <article class="panel chart-card">
+            <div class="chart-header">
+                <div>
+                    <h2>Tray uptime (24h)</h2>
+                    <p class="chart-subtitle">% of the last 24h each tray reported heartbeats</p>
+                </div>
+            </div>
+            <canvas id="uptimeChart" class="sysadmin-chart"></canvas>
+        </article>
+    </div>
+
+    <!-- Data store breakdown ---------------------------------------------->
+    <article class="panel">
+        <h2>Data store</h2>
+        <div class="stats-grid">
+            <div><h3>Tray statuses</h3><p id="m-c-status">{{ metrics.database.counts.tray_status }}</p></div>
+            <div><h3>Status events</h3><p id="m-c-event">{{ metrics.database.counts.tray_event }}</p></div>
+            <div><h3>Heartbeats</h3><p id="m-c-heartbeat">{{ metrics.database.counts.tray_heartbeat }}</p></div>
+            <div><h3>Heartbeat events</h3><p id="m-c-hbevent">{{ metrics.database.counts.tray_heartbeat_event }}</p></div>
+        </div>
+    </article>
+
+    <!-- Tray uptime table ------------------------------------------------->
+    <article class="panel">
+        <h2>Tray fleet detail</h2>
+        <table class="event-table" id="tray-table">
+            <thead>
+            <tr>
+                <th>Tray</th>
+                <th>Location</th>
+                <th>Signal</th>
+                <th>Active</th>
+                <th>Last seen (s ago)</th>
+                <th>Uptime 24h</th>
+                <th>Down incidents 24h</th>
+            </tr>
+            </thead>
+            <tbody id="tray-table-body">
+            {% for tray in metrics.fleet.trays %}
+                <tr>
+                    <td>{{ tray.tray_id }}</td>
+                    <td>{{ tray.location }}</td>
+                    <td>{% if tray.is_alive %}Alive{% else %}Down{% endif %}</td>
+                    <td>{% if tray.is_active %}Yes{% else %}No{% endif %}</td>
+                    <td>{{ tray.seconds_since|default:"—" }}</td>
+                    <td>{{ tray.uptime_pct_24h }}%</td>
+                    <td>{{ tray.down_incidents_24h }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7">No trays have reported yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </article>
+</section>
+
+<script id="system-metrics-data" type="application/json">{{ metrics_json|safe }}</script>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="{% static 'vendor/chart.js/chart.umd.js' %}"></script>
+    <script src="{% static 'js/system_admin.js' %}"></script>
+{% endblock %}

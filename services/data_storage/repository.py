@@ -152,3 +152,40 @@ def record_tray_heartbeat(
     TrayHeartbeatEvent.objects.bulk_create(events_to_create)
     logger.debug("Heartbeat recorded for %s (%ss gap)", tray_id, gap_seconds or 0)
     return heartbeat
+
+
+def purge_heartbeat_events(
+    retention_weeks: Optional[int] = None, *, batch_size: int = 10000
+) -> int:
+    """Delete heartbeat event logs (``TrayHeartbeatEvent``) older than the
+    retention window.
+
+    Only heartbeat logs are affected. Tray status logs (``TrayEvent``) are never
+    touched by this helper. Deletion is performed in batches so that write locks
+    stay short even when clearing a large backlog on a busy database. Returns the
+    total number of heartbeat events deleted.
+    """
+    if retention_weeks is None:
+        retention_weeks = getattr(settings, "TRAY_HEARTBEAT_RETENTION_WEEKS", 6)
+
+    if retention_weeks <= 0:
+        raise ValueError("retention_weeks must be a positive number of weeks")
+
+    cutoff = timezone.now() - timedelta(weeks=retention_weeks)
+    stale = TrayHeartbeatEvent.objects.filter(timestamp__lt=cutoff)
+
+    total_deleted = 0
+    while True:
+        batch_ids = list(stale.values_list("pk", flat=True)[:batch_size])
+        if not batch_ids:
+            break
+        deleted, _ = TrayHeartbeatEvent.objects.filter(pk__in=batch_ids).delete()
+        total_deleted += deleted
+
+    logger.info(
+        "Purged %s heartbeat event(s) older than %s (%s week retention)",
+        total_deleted,
+        cutoff.isoformat(),
+        retention_weeks,
+    )
+    return total_deleted

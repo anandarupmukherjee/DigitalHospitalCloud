@@ -48,6 +48,22 @@ services:
     networks:
       - default
       - cloud_apps
+  pruner:
+    build: .
+    container_name: logistics-tracking-pruner
+    env_file:
+      - .env
+    environment:
+      SERVICE_ROLE: pruner
+      DJANGO_COLLECTSTATIC: "0"
+    volumes:
+      - .:/app
+    depends_on:
+      - web
+    restart: unless-stopped
+    networks:
+      - default
+      - cloud_apps
 
 volumes:
   static_volume:

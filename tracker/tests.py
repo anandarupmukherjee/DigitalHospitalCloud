@@ -284,7 +284,7 @@ class TrayReportDownloadViewTests(TestCase):
             is_active=False,
         )
 
-    def test_report_contains_collection_and_heartbeat_sheets(self):
+    def test_report_contains_collection_sheet_only(self):
         now = timezone.now()
         TrayEvent.objects.create(
             tray=self.tray,
@@ -295,18 +295,6 @@ class TrayReportDownloadViewTests(TestCase):
             tray=self.tray,
             status=TrayEvent.STATUS_OFF,
             timestamp=now - timedelta(hours=1, minutes=15),
-        )
-        record_tray_heartbeat(
-            self.tray.tray_id,
-            topic="MET/hospital/status/TRAY-REPORT",
-            event_time=now - timedelta(seconds=7),
-            payload={"tray_id": self.tray.tray_id},
-        )
-        record_tray_heartbeat(
-            self.tray.tray_id,
-            topic="MET/hospital/status/TRAY-REPORT",
-            event_time=now,
-            payload={"tray_id": self.tray.tray_id},
         )
 
         self.client.force_login(self.user)
@@ -322,9 +310,54 @@ class TrayReportDownloadViewTests(TestCase):
         )
         workbook = load_workbook(filename=BytesIO(response.content))
         self.assertIn("collection", workbook.sheetnames)
-        self.assertIn("alive", workbook.sheetnames)
+        self.assertEqual(workbook.sheetnames, ["collection"])
         self.assertGreater(workbook["collection"].max_row, 1)
-        self.assertGreater(workbook["alive"].max_row, 1)
+
+
+class TrayHeartbeatLogDownloadViewTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username="heartbeat_report_user",
+            password="password",
+            is_superuser=True,
+            is_staff=True,
+        )
+        self.tray = TrayStatus.objects.create(
+            tray_id="TRAY-HB-REPORT",
+            topic="hospital/tray/TRAY-HB-REPORT",
+            is_active=False,
+        )
+
+    def test_download_contains_missed_heartbeat_windows(self):
+        now = timezone.now()
+        record_tray_heartbeat(
+            self.tray.tray_id,
+            topic="MET/hospital/status/TRAY-HB-REPORT",
+            event_time=now - timedelta(seconds=20),
+            payload={"tray_id": self.tray.tray_id},
+        )
+        record_tray_heartbeat(
+            self.tray.tray_id,
+            topic="MET/hospital/status/TRAY-HB-REPORT",
+            event_time=now,
+            payload={"tray_id": self.tray.tray_id},
+        )
+
+        self.client.force_login(self.user)
+        with patch("tracker.views.timezone.now", return_value=now):
+            response = self.client.get(
+                reverse("tray-heartbeat-log-download", args=[self.tray.id]),
+                {"range": "day"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/csv", response["Content-Type"])
+        content = b"".join(response.streaming_content).decode()
+        self.assertIn("Missed At,Reported Gap Seconds,Down Note,Recovered At,Recovery Note,State", content)
+        self.assertIn("No heartbeat for 20s", content)
+        self.assertIn("Heartbeat restored after 20s gap", content)
+        self.assertIn("recovered", content)
 
 
 class TrayMQTTListenerTests(SimpleTestCase):

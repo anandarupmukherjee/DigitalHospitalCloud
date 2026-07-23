@@ -105,7 +105,7 @@ class TrayHeartbeatEvent(models.Model):
         TrayHeartbeat, on_delete=models.CASCADE, related_name="events"
     )
     status = models.CharField(max_length=8, choices=STATUS_CHOICES)
-    timestamp = models.DateTimeField()
+    timestamp = models.DateTimeField(db_index=True)
     note = models.CharField(max_length=255, blank=True)
     payload = models.JSONField(default=dict, blank=True)
 

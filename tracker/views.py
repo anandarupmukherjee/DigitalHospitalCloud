@@ -1,6 +1,9 @@
 import json
 import os
+import re
+import csv
 from datetime import timedelta
+from io import BytesIO
 from urllib.parse import urlencode
 
 from django.conf import settings
@@ -8,7 +11,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.paginator import Paginator
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.views.generic import TemplateView, View
@@ -28,6 +31,7 @@ from .analytics import (
 )
 from services.data_collection_tray.publisher import TrayConfigPublisher
 from services.data_storage.repository import record_tray_state
+from .system_metrics import collect_system_metrics
 from .utils import ROLE_CHOICES, assign_role, user_is_manager
 
 
@@ -692,7 +696,7 @@ class TrayHistoryView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView):
 
 
 class TrayReportDownloadView(LoginRequiredMixin, ManagerRequiredMixin, View):
-    """Download an Excel report with collection and heartbeat events."""
+    """Download an Excel report with tray collection events only."""
 
     def get(self, request, pk, *args, **kwargs):
         tray = get_object_or_404(TrayStatus, pk=pk)
@@ -701,53 +705,117 @@ class TrayReportDownloadView(LoginRequiredMixin, ManagerRequiredMixin, View):
         end_time = timezone.now()
         start_time = end_time - delta
 
-        collection_events = TrayEvent.objects.filter(
-            tray=tray, timestamp__range=(start_time, end_time)
-        ).order_by("timestamp")
-
-        heartbeat = (
-            TrayHeartbeat.objects.filter(tray_id=tray.tray_id)
-            .order_by("-last_seen_at")
-            .first()
-        )
-        heartbeat_events = list(
-            TrayHeartbeatEvent.objects.filter(
-                heartbeat__tray_id=tray.tray_id,
-                timestamp__range=(start_time, end_time),
-            ).order_by("timestamp")
+        collection_events = (
+            TrayEvent.objects.filter(tray=tray, timestamp__range=(start_time, end_time))
+            .order_by("timestamp")
+            .values_list("timestamp", "status", "topic")
+            .iterator(chunk_size=2000)
         )
 
-        workbook = Workbook()
-        collection_sheet = workbook.active
-        collection_sheet.title = "collection"
+        workbook = Workbook(write_only=True)
+        collection_sheet = workbook.create_sheet("collection")
         collection_sheet.append(["Timestamp", "Status", "Topic"])
-        for event in collection_events:
+        for timestamp, status, topic in collection_events:
             collection_sheet.append(
                 [
-                    timezone.localtime(event.timestamp).isoformat(),
-                    event.get_status_display(),
-                    event.topic or "",
+                    timezone.localtime(timestamp).isoformat(),
+                    dict(TrayEvent.STATUS_CHOICES).get(status, status),
+                    topic or "",
                 ]
             )
 
-        heartbeat_sheet = workbook.create_sheet("alive")
-        heartbeat_sheet.append(["Timestamp", "Status", "Note"])
-        for hb_event in heartbeat_events:
-            heartbeat_sheet.append(
-                [
-                    timezone.localtime(hb_event.timestamp).isoformat(),
-                    hb_event.get_status_display(),
-                    hb_event.note or "",
-                ]
-            )
-
+        output = BytesIO()
+        workbook.save(output)
+        output.seek(0)
         response = HttpResponse(
-            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            output.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
         timestamp_slug = timezone.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{tray.tray_id}_{timestamp_slug}.xlsx"
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
-        workbook.save(response)
+        return response
+
+
+class Echo:
+    def write(self, value):
+        return value
+
+
+class TrayHeartbeatLogDownloadView(LoginRequiredMixin, ManagerRequiredMixin, View):
+    """Download heartbeat outage incidents as CSV."""
+
+    gap_pattern = re.compile(r"(\d+)")
+
+    def _extract_gap_seconds(self, note: str) -> str:
+        match = self.gap_pattern.search(note or "")
+        return match.group(1) if match else ""
+
+    def _iter_rows(self, tray_id: str, start_time, end_time):
+        pending_down = None
+        events = (
+            TrayHeartbeatEvent.objects.filter(
+                heartbeat__tray_id=tray_id,
+                timestamp__range=(start_time, end_time),
+                status__in=[
+                    TrayHeartbeatEvent.STATUS_DOWN,
+                    TrayHeartbeatEvent.STATUS_ALIVE,
+                ],
+            )
+            .order_by("timestamp")
+            .values_list("timestamp", "status", "note")
+            .iterator(chunk_size=5000)
+        )
+
+        for timestamp, status, note in events:
+            if status == TrayHeartbeatEvent.STATUS_DOWN:
+                if pending_down is not None:
+                    yield pending_down + ["", "", ""]
+                pending_down = [
+                    timezone.localtime(timestamp).isoformat(),
+                    self._extract_gap_seconds(note),
+                    note or "",
+                ]
+                continue
+
+            if pending_down is None:
+                continue
+
+            recovered_at = timezone.localtime(timestamp).isoformat()
+            yield pending_down + [recovered_at, note or "", "recovered"]
+            pending_down = None
+
+        if pending_down is not None:
+            yield pending_down + ["", "", "unrecovered"]
+
+    def get(self, request, pk, *args, **kwargs):
+        tray = get_object_or_404(TrayStatus, pk=pk)
+        range_key_input = request.GET.get("range", "day")
+        _, _, delta = resolve_history_window(range_key_input)
+        end_time = timezone.now()
+        start_time = end_time - delta
+
+        pseudo_buffer = Echo()
+        writer = csv.writer(pseudo_buffer)
+
+        def stream():
+            yield writer.writerow(
+                [
+                    "Missed At",
+                    "Reported Gap Seconds",
+                    "Down Note",
+                    "Recovered At",
+                    "Recovery Note",
+                    "State",
+                ]
+            )
+            for row in self._iter_rows(tray.tray_id, start_time, end_time):
+                yield writer.writerow(row)
+
+        timestamp_slug = timezone.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{tray.tray_id}_heartbeat_gaps_{timestamp_slug}.csv"
+        response = StreamingHttpResponse(stream(), content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
         return response
 
 
@@ -939,3 +1007,24 @@ class ConfigureTraysView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView)
                 return redirect("configure-trays")
         context = self.get_context_data(form=form)
         return self.render_to_response(context)
+
+
+class SystemAdminView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView):
+    """Sys-admin dashboard: platform health, database, and tray uptime."""
+
+    template_name = "tracker/system_admin.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        metrics = collect_system_metrics()
+        context["metrics"] = metrics
+        context["metrics_json"] = json.dumps(metrics)
+        context["refresh_seconds"] = 15
+        return context
+
+
+class SystemMetricsDataView(LoginRequiredMixin, ManagerRequiredMixin, View):
+    """JSON feed powering the live gauges/graphs on the sys-admin dashboard."""
+
+    def get(self, request, *args, **kwargs):
+        return JsonResponse(collect_system_metrics())

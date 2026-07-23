@@ -22,6 +22,71 @@
         updateToggleLabel();
     }
 
+    // Live heartbeat status: the server render is a one-off snapshot with a
+    // tight (~5s) stale window, so it goes red between beats. Poll the shared
+    // tray-status feed to keep the pill accurate, matching the dashboard.
+    const heartbeatPill = document.querySelector('[data-heartbeat-live]');
+    if (heartbeatPill) {
+        const trayId = heartbeatPill.dataset.trayId;
+        const topic = heartbeatPill.dataset.topic || '';
+        const dot = heartbeatPill.querySelector('.heartbeat-dot');
+        const stateEl = heartbeatPill.querySelector('[data-heartbeat-state]');
+        const lastSeenEl = heartbeatPill.querySelector('[data-heartbeat-lastseen]');
+        const scriptBase = (window.APP_BASE_PATH || '').replace(/\/$/, '');
+        const apiUrl = `${scriptBase}/api/tray-status/`;
+
+        const applyRecord = (record) => {
+            if (!record) {
+                return;
+            }
+            const alive = Boolean(record.is_alive);
+            heartbeatPill.classList.toggle('alive', alive);
+            heartbeatPill.classList.toggle('down', !alive);
+            if (dot) {
+                dot.classList.toggle('alive', alive);
+                dot.classList.toggle('down', !alive);
+            }
+            if (stateEl) {
+                stateEl.textContent = alive ? 'Signal alive' : 'No heartbeat';
+            }
+            if (lastSeenEl && record.last_seen_at) {
+                lastSeenEl.textContent = new Date(record.last_seen_at).toLocaleString();
+            }
+        };
+
+        const refreshHeartbeat = () => {
+            fetch(apiUrl)
+                .then((response) => response.json())
+                .then((data) => {
+                    const records = (data.heartbeat && data.heartbeat.records) || [];
+                    const match =
+                        records.find((r) => r.tray_id === trayId && (r.topic || '') === topic) ||
+                        records.find((r) => r.tray_id === trayId);
+                    applyRecord(match);
+                })
+                .catch(() => {});
+        };
+
+        refreshHeartbeat();
+        setInterval(refreshHeartbeat, 5000);
+    }
+
+    // Generic collapsible panels (e.g. Collection sessions, Event log).
+    document.querySelectorAll('[data-collapsible]').forEach((section) => {
+        const toggle = section.querySelector('[data-collapse-toggle]');
+        if (!toggle) {
+            return;
+        }
+        const syncLabel = () => {
+            toggle.textContent = section.classList.contains('collapsed') ? 'Show' : 'Hide';
+        };
+        toggle.addEventListener('click', () => {
+            section.classList.toggle('collapsed');
+            syncLabel();
+        });
+        syncLabel();
+    });
+
     const withChart = (id, builder) => {
         const canvas = document.getElementById(id);
         if (!canvas || !canvas.dataset.chart) {

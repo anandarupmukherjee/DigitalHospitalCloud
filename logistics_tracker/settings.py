@@ -92,6 +92,12 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        # Wait (seconds) for a locked database instead of erroring immediately.
+        # Keeps the listener/notifier from crashing during maintenance ops
+        # (large deletes, VACUUM, index builds) that briefly hold write locks.
+        'OPTIONS': {
+            'timeout': int(os.getenv('DJANGO_DB_TIMEOUT', '30')),
+        },
     }
 }
 
@@ -149,6 +155,14 @@ TRAY_ALERT_INTERVAL_MINUTES = int(os.getenv("TRAY_ALERT_INTERVAL_MINUTES", "30")
 # Heartbeat / status configuration
 TRAY_HEARTBEAT_STALE_SECONDS = int(os.getenv("TRAY_HEARTBEAT_STALE_SECONDS", "5"))
 DEFAULT_MQTT_STATUS_TOPIC = os.getenv("MQTT_STATUS_TOPIC", "MET/hospital/status/#")
+
+# Retention window for heartbeat event logs (TrayHeartbeatEvent). Older heartbeat
+# events are pruned by the ``prune_heartbeat_events`` command. Tray status logs
+# (TrayEvent) are never pruned by this setting.
+TRAY_HEARTBEAT_RETENTION_WEEKS = int(os.getenv("TRAY_HEARTBEAT_RETENTION_WEEKS", "6"))
+
+# System-admin dashboard: soft cap (GB) used to scale the database-size gauge.
+PLATFORM_DB_SOFT_CAP_GB = float(os.getenv("PLATFORM_DB_SOFT_CAP_GB", "2"))
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

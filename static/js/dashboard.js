@@ -119,15 +119,29 @@
     }
 
     function createIcon(tray) {
-        const classNames = ['tray-marker'];
         const bucket = getActivityBucket(tray);
-        classNames.push(`bucket-${bucket}`);
+        const classNames = ['tray-pin', `bucket-${bucket}`];
         if (bucket === 'now') {
             classNames.push('marker-blink');
         }
+        // A map pin carrying a 3D parcel/tray glyph — relevant to specimen
+        // logistics. Colour comes from the bucket class via a CSS variable.
+        const html = `
+            <span class="pin-halo"></span>
+            <svg class="pin-svg" viewBox="0 0 34 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path class="pin-body" d="M17 43 C9 30 3 23 3 15 A14 14 0 1 1 31 15 C31 23 25 30 17 43 Z"/>
+                <g class="pin-glyph">
+                    <path fill="#ffffff" d="M17 8 L23 11.5 L17 15 L11 11.5 Z"/>
+                    <path fill="rgba(255,255,255,0.82)" d="M11 11.5 L17 15 L17 21.5 L11 18 Z"/>
+                    <path fill="rgba(255,255,255,0.6)" d="M23 11.5 L17 15 L17 21.5 L23 18 Z"/>
+                </g>
+            </svg>`;
         return L.divIcon({
             className: classNames.join(' '),
-            iconSize: [18, 18]
+            html,
+            iconSize: [34, 44],
+            iconAnchor: [17, 43],
+            popupAnchor: [0, -38]
         });
     }
 

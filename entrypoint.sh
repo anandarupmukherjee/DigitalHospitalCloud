@@ -14,6 +14,10 @@ if [ "$ROLE" = "notifier" ]; then
   exec python manage.py notify_active_trays
 fi
 
+if [ "$ROLE" = "pruner" ]; then
+  exec python manage.py prune_heartbeat_events
+fi
+
 if [ "${DJANGO_COLLECTSTATIC:-1}" = "1" ]; then
   python manage.py collectstatic --noinput
 fi
